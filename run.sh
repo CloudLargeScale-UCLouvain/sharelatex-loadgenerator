@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 
-export LOCUST_DURATION=3600
-export LOCUST_WAIT_MEAN=10
-export LOCUST_WAIT_STD=4
-export LOCUST_HATCH_RATE=4
-export LOCUST_SPAWN_WAIT_MEAN=40
-export LOCUST_SPAWN_WAIT_STD=10
-export LOCUST_USER_MEAN=40
-export LOCUST_USER_STD=20
-export LOCUST_MEASUREMENT_DESCRIPTION="normal distributed number of users with normal distributed wait"
-export ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-export LOCUST_USERS=10
-export LOCUST_METRICS_EXPORT="measurements"
-export LOCUST_MEASUREMENT_NAME="measurement"
-export LOCUST_MEASUREMENT_DESCRIPTION="linear increase"
-export LOCUST_INFLUXDB_SERVER="influxdb.local"
-export LOCUST_INFLUXDB_PORT="8086"
-export LOCUST_INFLUXDB_USER="influxdb"
-export LOCUST_INFLUXDB_PASSWORD="rewtrewt"
-export LOCUST_INFLUXDB_DB="metrics"
-export LOCUST_STATSD_HOST="telegraf.local"
+# export LOCUST_DURATION=3600
+# export LOCUST_WAIT_MEAN=10
+# export LOCUST_WAIT_STD=4
+# export LOCUST_HATCH_RATE=4
+# export LOCUST_SPAWN_WAIT_MEAN=40
+# export LOCUST_SPAWN_WAIT_STD=10
+# export LOCUST_USER_MEAN=40
+# export LOCUST_USER_STD=20
+# export LOCUST_MEASUREMENT_DESCRIPTION="normal distributed number of users with normal distributed wait"
+# export ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# export LOCUST_USERS=10
+# export LOCUST_METRICS_EXPORT="measurements"
+# export LOCUST_MEASUREMENT_NAME="measurement"
+# export LOCUST_MEASUREMENT_DESCRIPTION="linear increase"
+# export LOCUST_INFLUXDB_SERVER="influxdb.local"
+# export LOCUST_INFLUXDB_PORT="8086"
+# export LOCUST_INFLUXDB_USER="influxdb"
+# export LOCUST_INFLUXDB_PASSWORD="rewtrewt"
+# export LOCUST_INFLUXDB_DB="metrics"
+# export LOCUST_STATSD_HOST="telegraf.local"
 
 #for i in $(seq 1 1); do
 #    export LOCUST_USERS=70
@@ -41,19 +41,19 @@ export LOCUST_STATSD_HOST="telegraf.local"
 #  done
 #done
 
-export LOCUST_USERS=40
-export LOCUST_LOAD_TYPE=worldcup
-export LOCUST_LOG_PATH="${ROOT_DIR}/logs/wc_day38_1.gz"
-export LOCUST_TIMESTAMP_START="1998-06-02 08:50:00"
-export LOCUST_TIMESTAMP_STOP="1998-06-02 09:50:00"
-#export LOCUST_TIMESTAMP_START="1998-06-02 09:30:00"
-#export LOCUST_TIMESTAMP_STOP="1998-06-02 09:35:00"
-export LOCUST_MEASUREMENT_NAME="worldcup98-http-scale"
-./cpu_scale.sh http_request_scale.tick
-locust -H http://sharelatex.local
-export LOCUST_MEASUREMENT_NAME="worldcup98-cpu-scale"
-./cpu_scale.sh cpu_scale.tick
-locust -H http://sharelatex.local
+# export LOCUST_USERS=40
+# export LOCUST_LOAD_TYPE=worldcup
+# export LOCUST_LOG_PATH="${ROOT_DIR}/logs/wc_day38_1.gz"
+# export LOCUST_TIMESTAMP_START="1998-06-02 08:50:00"
+# export LOCUST_TIMESTAMP_STOP="1998-06-02 09:50:00"
+# #export LOCUST_TIMESTAMP_START="1998-06-02 09:30:00"
+# #export LOCUST_TIMESTAMP_STOP="1998-06-02 09:35:00"
+# export LOCUST_MEASUREMENT_NAME="worldcup98-http-scale"
+# ./cpu_scale.sh http_request_scale.tick
+# locust -H http://sharelatex.local
+# export LOCUST_MEASUREMENT_NAME="worldcup98-cpu-scale"
+# ./cpu_scale.sh cpu_scale.tick
+# locust -H http://sharelatex.local
 
 #for i in $(seq 1 5); do
 #    export LOCUST_USERS=70
@@ -63,8 +63,15 @@ locust -H http://sharelatex.local
 #    locust -H http://sharelatex.local
 #done
 
-#export LOCUST_DURATION=90
-#export LOCUST_USERS=40
-#export LOCUST_LOAD_TYPE=random
-#export LOCUST_MEASUREMENT_NAME="test-load"
-#locust -H http://sharelatex.local
+export LOCUST_DURATION=60
+export LOCUST_USERS=1
+export LOCUST_USER_MEAN=1
+export LOCUST_HATCH_RATE=0
+
+export LOCUST_WAIT_MEAN=3
+export LOCUST_WAIT_STD=1
+
+export LOCUST_LOAD_TYPE=constant
+export LOCUST_MEASUREMENT_NAME="test-load"
+export LOCUST_MEASUREMENT_DESCRIPTION="random test"
+locust -H http://localhost:8080
