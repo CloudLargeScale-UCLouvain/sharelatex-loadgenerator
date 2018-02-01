@@ -63,15 +63,12 @@
 #    locust -H http://sharelatex.local
 #done
 
-export LOCUST_DURATION=60
-export LOCUST_USERS=1
-export LOCUST_USER_MEAN=1
-export LOCUST_HATCH_RATE=0
-
-export LOCUST_WAIT_MEAN=3
-export LOCUST_WAIT_STD=1
+export LOCUST_DURATION=1800
+export LOCUST_USERS=10
+export LOCUST_HATCH_RATE=1
 
 export LOCUST_LOAD_TYPE=constant
-export LOCUST_MEASUREMENT_NAME="test-load"
-export LOCUST_MEASUREMENT_DESCRIPTION="random test"
+export LOCUST_MEASUREMENT_NAME="cloud.30mins.10users"
+export LOCUST_MEASUREMENT_DESCRIPTION="constant test"
+
 locust -H http://localhost:8080

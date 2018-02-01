@@ -2,26 +2,29 @@ import json
 import os
 import re
 import sys
+import uuid
+
 import time
-from threading import Thread
+from threading import Thread, Lock
 import signal
 from datetime import datetime
 import random
+from fractions import Fraction
 
 from gevent.queue import Queue, Full, Empty
 # from influxdb import InfluxDBClient
 import gevent
 from locust.core import TaskSet
-from locust import HttpLocust, TaskSet, task, events, runners
+from locust import HttpLocust, TaskSet, task, events, runners, stats
 from locust.exception import StopLocust
 import requests
 # import statsd
 import pandas as pd
 import numpy as np
 
-from loadgenerator import project, csrf
+from loadgenerator import project, csrf, randomwords
 # import metrics
-# import logparser
+import logparser
 
 # host = os.environ.get("LOCUST_STATSD_HOST", "localhost")
 # port = os.environ.get("LOCUST_STATSD_PORT", "8125")
@@ -30,7 +33,6 @@ METRICS_EXPORT_PATH     = os.environ.get("LOCUST_METRICS_EXPORT", "measurements"
 MEASUREMENT_NAME        = os.environ.get("LOCUST_MEASUREMENT_NAME", "measurement")
 MEASUREMENT_DESCRIPTION = os.environ.get("LOCUST_MEASUREMENT_DESCRIPTION", "linear increase")
 DURATION                = int(os.environ.get("LOCUST_DURATION", "20"))
-print(DURATION)
 USERS                   = int(os.environ.get("LOCUST_USERS", '10'))
 HATCH_RATE              = float(os.environ.get("LOCUST_HATCH_RATE", "1"))
 LOAD_TYPE               = os.environ.get("LOCUST_LOAD_TYPE", "constant") # linear, constant, random, nasa, worldcup
@@ -43,77 +45,176 @@ WAIT_STD                = int(os.environ.get("LOCUST_WAIT_STD", "4"))
 TIMESTAMP_START         = os.environ.get("LOCUST_TIMESTAMP_START", '1998-06-02 08:50:00')
 TIMESTAMP_STOP          = os.environ.get("LOCUST_TIMESTAMP_STOP", '1998-06-02 09:50:00')
 WEB_LOGS_PATH           = os.environ.get("LOCUST_LOG_PATH", "logs") # path to nasa/worldcup logs
+NR_SHARELATEX_USERS     = int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", "5"))
 
 os.environ["LOCUST_MEASUREMENT_NAME"] = MEASUREMENT_NAME
 os.environ["LOCUST_MEASUREMENT_DESCRIPTION"] = MEASUREMENT_DESCRIPTION
 
-def wait(self):
-    gevent.sleep(random.normalvariate(WAIT_MEAN, WAIT_STD))
-TaskSet.wait = wait
+current_milli_time = lambda: int(round(time.time() * 1000))
+
+class RequestStats():
+    def __init__(self):
+        events.request_success += self.requests_success
+        events.request_failure += self.requests_failure
+        events.locust_error    += self.locust_error
+        self.stats = {'Total':[]}
+
+    def requests_success(self, request_type="", name="", response_time=0, **kw):
+        # STATSD.timing(request_type + "-" + name, response_time)
+        # print("%s - %s: %s" % (request_type, name, response_time))
+        if name not in self.stats:
+            self.stats[name] = []
+        self.stats[name].append(response_time)
+        self.stats['Total'].append(response_time)
+        # if len(self.stats[name]) > 20:
+        #     save_stats('lesh')
+        # self.stats[name].append({'rt':response_time})
+        # STATSD.timing("requests_success", response_time)
+
+    def requests_failure(self, request_type="", name="", response_time=0, exception=None, **kw):
+        # STATSD.timing(request_type + "-" + name + "-error", response_time)
+        # if not request_type.startswith("WebSocket"):
+        print("%s - %s: %s" % (request_type, name, response_time))
+        # STATSD.timing("requests_failure", response_time)
+
+    def locust_error(self, locust_instance=None, exception=None, tb=None):
+        # STATSD.incr(locust_instance.__class__.__name__ + "-" + exception.__class__.__name__)
+        # STATSD.incr("requests_error")
+        pass
+
+rs = RequestStats()
+
+# def wait(self):
+#     gevent.sleep(random.normalvariate(WAIT_MEAN, WAIT_STD))
+# TaskSet.wait = wait
+
+def save_stats(filename):
+    res = {}
+    for key, value in rs.stats.iteritems():
+        value.sort()
+        res[key]=[0]
+        for i in range(1,11,1):
+            fi = i*0.1
+            inx = int(fi*len(value))
+            if inx >= len(value):
+                inx = len(value)-1
+            res[key].append(value[inx])
+    str_res = 'Percentage '
+    skeys = sorted(res.keys())
+    for i in range(0,12,1):
+        for key in skeys:
+            value = res[key]
+            if i == 0:
+                str_res += '%s ' % key.replace('_','\_')
+            else:
+                str_res += '%s ' % value[i-1]
+        str_res += '\n'
+        if i != 11:
+            str_res += '%s ' % (0.1*i)
+    # print str_res
+    open('out/%s'% filename, 'w').write(str_res)
+    pass
+
+def save_csv(filename):
+    cvs = stats.distribution_csv()
+    old_rows = cvs.split('\n')
+    new_columns = []
+    nr_rows = 0
+    nr_req_col = []
+    method_names = []
+    for old_row in old_rows:
+        old_row = old_row.replace('"', '').replace('%','').replace('# ','')
+        new_column = old_row.split(',')
+        nr_req_col.append(new_column[1])
+        nr_rows = len(new_column)
+        new_column[0] = new_column[0].replace("_","\_").split(' ')
+        new_column[0] = new_column[0][1] if len(new_column[0]) > 1 else new_column[0][0]
+        method_names.append(new_column[0])
+        new_columns.append(new_column)
+
+        # name = words[0].strip('"').split(' ')
+        # name = name[1] if len(name) > 1 else name[0]
+        # nr_req =
+    k = 0
+    dist_res = ''
+    for i in range(0, nr_rows):
+        if i == 1:
+            continue
+        new_row = []
+        for j in range(0, len(new_columns)):
+            new_row.append(new_columns[j][i])
+        new_row_str = ' '.join(new_row)
+        dist_res += "%s\n" % new_row_str
+
+    req_res = ''
+    for i in range(0, len(method_names)):
+        req_res += "%s %s\n" % (method_names[i], nr_req_col[i])
+
+    open('out/%s(%s)'% (filename,'dist'), 'w').write(dist_res)
+    open('out/%s(%s)'% (filename,'req'), 'w').write(req_res)
 
 def login(l):
-    resp = l.client.get("/login")
+    resp = l.client.get("/login", name='get_login_page')
     l.csrf_token = csrf.find_in_page(resp.content)
     data = {
         "_csrf": l.csrf_token,
         "email": l.email,
         "password": "locust"
     }
-    r = l.client.post("/login", data)
+    r = l.client.post("/login", data, name='login')
+
     assert r.json().get("redir", None) == "/project"
-
-def create_delete_project(l):
-    d = {"_csrf": l.csrf_token, "projectName": "123", "template": None}
-    r = l.client.post("/project/new", json=d)
-    l.client.delete("/project/%s" % r.json()["project_id"],
-                    params = {"_csrf": l.csrf_token},
-                    name = "/project/[id]")
-
-def create_project(l):
-    d = {"_csrf": l.csrf_token, "projectName": "123", "template": None}
-    r = l.client.post("/project/new", json=d)
-    return r
 
 
 def settings(l):
-    l.client.get("/user/settings")
-    d = dict(_csrf=l.csrf_token, email=l.email, first_name="Locust", last_name="Swarm")
-    assert l.client.post("/user/settings", json=d).text == "OK"
+    l.client.get("/user/settings", name='get_settings')
+    d = dict(_csrf=l.csrf_token, email=l.email, first_name=l.email.split('@')[0].title(), last_name="Swarm")
+    assert l.client.post("/user/settings", json=d, name="update_settings").text == "OK"
 
-def stop(l):
-    l.interrupt()
 
-def register(l):
-    l.client.get("/register")
+def create_tag(l):
+    name = randomwords.sample(1, 1)[0]
+    data = {"_csrf": l.csrf_token, "name": name}
+    r = l.client.post("/tag", data, name='create_tag')
+    if r.status_code != 200:
+        print 'user %s tried to create tag %s' % (l.email, name)
+    pass
 
-def index(l):
-    l.client.get("/")
+
+def logout(l):
+    resp = l.client.get("/logout", name='logout')
+    l.interrupt(reschedule=True)
+
+
+logins_per_acc = 2
+user = 1#1
+mutex = Lock()
 
 class ProjectOverview(TaskSet):
-    tasks = { project.Page: 1, create_delete_project: 0, stop: 0 }
-    
-    def on_start(self):
-        r = self.client.get("/project")
-        projects = re.search("{\"projects\":\\[.*\\]}", r.content, re.MULTILINE)
-        self.projects = json.loads(projects.group(0))['projects'] if projects is not None else []
-        # assert len(self.projects) > 0, "No project found, create some!"
-        self.csrf_token = csrf.find_in_page(r.content)
-
-nr_users = 5
-user = 1
-logins_per_acc = 2
-class UserBehavior(TaskSet):
-    tasks = {ProjectOverview: 1, register: 0, index: 0, settings: 0}
+    tasks = { project.Page: 100, create_tag: 10, settings: 5, logout: 20}
+    # tasks = { project.Page: 100}
 
     def on_start(self):
         global user
         global logins_per_acc
-        user += 1.0 / logins_per_acc
-        i = nr_users if user == nr_users else (int(user) % nr_users)
-        print "## %d %d" % (user, i)
+        mutex.acquire()
+        i = NR_SHARELATEX_USERS if (int(user) % NR_SHARELATEX_USERS) == 0 else (int(user) % NR_SHARELATEX_USERS)
+        # print "## %d %d" % (user, i)
         self.email = "locust%d@sharelatex.dev" % i
-        print(self.email)
+        user += Fraction(1, logins_per_acc)
+        print('Using user: %s' % self.email)
+        mutex.release()
+
         login(self)
+
+        r = self.client.get("/project", name='get_project_list')
+        self.csrf_token = csrf.find_in_page(r.content)
+        self.nr_users = NR_SHARELATEX_USERS
+        # assert len(self.projects) > 0, "No project found, create some!"
+
+class UserBehavior(TaskSet):
+    tasks = {ProjectOverview: 1}
+    # def on_start(self):
 
 class WebsiteUser(HttpLocust):
     if LOAD_TYPE == "nasa" or LOAD_TYPE == "worldcup":
@@ -123,30 +224,13 @@ class WebsiteUser(HttpLocust):
             self.client_id = client_id
             self.client_queue = queue
             super(WebsiteUser, self).__init__()
+
     host = 'http://localhost:8080'
     task_set = UserBehavior
+    min_wait = 2000
+    max_wait = 4000
 
-# class RequestStats():
-#     def __init__(self):
-#         events.request_success += self.requests_success
-#         events.request_failure += self.requests_failure
-#         events.locust_error    += self.locust_error
 
-#     def requests_success(self, request_type="", name="", response_time=0, **kw):
-#         STATSD.timing(request_type + "-" + name, response_time)
-#         if not request_type.startswith("WebSocket"):
-#             print("%s - %s: %s" % (request_type, name, response_time))
-# 	    STATSD.timing("requests_success", response_time)
-
-#     def requests_failure(self, request_type="", name="", response_time=0, exception=None, **kw):
-#         STATSD.timing(request_type + "-" + name + "-error", response_time)
-#         if not request_type.startswith("WebSocket"):
-#             print("%s - %s: %s" % (request_type, name, response_time))
-# 	    STATSD.timing("requests_failure", response_time)
-
-#     def locust_error(self, locust_instance=None, exception=None, tb=None):
-#         STATSD.incr(locust_instance.__class__.__name__ + "-" + exception.__class__.__name__)
-#         STATSD.incr("requests_error")
 
 def stop_measure(started_at):
     ended_at = datetime.utcnow()
@@ -159,6 +243,10 @@ def stop_measure(started_at):
     metadata['name']        = metadata['measurement_name']
     metadata['description'] = metadata['measurement_description']
     # metrics.export(metadata, started_at, ended_at)
+
+    save_stats('%s-%s'% (metadata['name'],str(uuid.uuid4())[:4]))
+    # open('out/%s-%s'% (metadata['name'],ended_at), 'w').write(cvs)
+
     os.kill(os.getpid(), signal.SIGINT)
 
 def constant_measure(*args, **kw):
@@ -180,18 +268,18 @@ def process_requests(self):
     i = self.locust.request_number
     timestamps = self.locust.request_timestamps
     if i < timestamps.size:
-	delta = (timestamps.iloc[i] - timestamps.iloc[i - 1]) / np.timedelta64(1, 's')
-	print("client %s waits or %s" % (self.locust.client_id, delta))
-	gevent.sleep(delta)
-	self.locust.request_number += 1
+        delta = (timestamps.iloc[i] - timestamps.iloc[i - 1]) / np.timedelta64(1, 's')
+        print("client %s waits or %s" % (self.locust.client_id, delta))
+        gevent.sleep(delta)
+        self.locust.request_number += 1
     else:
         try:
-	    idx, timestamps = self.locust.client_queue.get(timeout=1)
+            idx, timestamps = self.locust.client_queue.get(timeout=1)
             self.client_id = idx
-	    self.request_timestamps = timestamps
-	    self.request_number = 1
+            self.request_timestamps = timestamps
+            self.request_number = 1
         except Empty:
-	    raise StopLocust("stop this instance")
+            raise StopLocust("stop this instance")
 
 def report_users():
     while True:
@@ -230,7 +318,7 @@ def replay_log_measure(df):
             except gevent.GreenletExit:
                 pass
         try:
-	    queue.put((idx[1], timestamps), block=False)
+            queue.put((idx[1], timestamps), block=False)
         except Full:
             runner.locusts.spawn(start_locust, locust)
     stop_measure(real_started_at)
@@ -339,7 +427,10 @@ def measure():
         sys.stderr.write("unsupported load type: %s" % LOAD_TYPE)
         sys.exit(1)
 
-#Thread(target=measure).start()
-if __name__ == '__main__':
-    x = WebsiteUser()
-    x.run()
+Thread(target=measure).start()
+
+# RequestStats()
+
+# if __name__ == '__main__':
+#     x = WebsiteUser()
+#     x.run()
