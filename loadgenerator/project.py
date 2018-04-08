@@ -2,7 +2,6 @@ import socketio
 import gevent
 import random
 import os
-import signal
 import re
 import string
 import uuid
@@ -12,7 +11,7 @@ from . import ROOT_PATH, csrf, randomwords
 from gevent.hub import ConcurrentObjectUseError
 from locust import TaskSet, task
 from websocket import WebSocketConnectionClosedException
-
+from locust.events import request_success
 
 # from requests import Request, Session
 current_milli_time = lambda: int(round(time.time() * 1000))
@@ -20,11 +19,12 @@ current_milli_time = lambda: int(round(time.time() * 1000))
 class Websocket():
     def __init__(self, page):
         self.c = socketio.Client(page.locust)
+        self.l = page
         self.pending_text = None
-        self.c.on("clientTracking.clientUpdated", self.noop)
-        self.c.on("clientTracking. ", self.noop)
+        # self.c.on("clientTracking.clientUpdated", self.noop)
+        self.c.on("clientTracking.clientUpdated", self.on_update_position)
         self.c.on("clientTracking.clientDisconnected", self.noop)
-        self.c.on("new-chat-message", self.noop)
+        self.c.on("new-chat-message", self.on_chat)
         self.c.on("reciveNewFile", self.noop)
         self.c.on("connectionAccepted", self.noop)
         self.c.on("otUpdateApplied", self.update_version)
@@ -47,12 +47,36 @@ class Websocket():
     def recv(self): self.c.recv()
 
     def update_version(self, args):
+        rec_ts = current_milli_time()
+        request_success.fire(request_type='WebSocket',
+                            name="update_text",
+                            response_time=rec_ts - args[0]['client_ts'],
+                            response_length=0)
+
         self.doc_version = args[0]["v"] + 1
         if self.pending_text is not None:
             self.doc_text = self.pending_text
             self.pending_text = None
 
     def noop(self, args):
+        pass
+
+    def on_update_position(self, args):
+        print('user %s saw user %s moving' % (self.l.parent.email, args[0]['email']))
+        rec_ts = current_milli_time()
+        request_success.fire(request_type='WebSocket',
+                            name="update_cursor_position",
+                            response_time=rec_ts - args[0]['client_ts'],
+                            response_length=0)
+        pass
+
+    def on_chat(self, args):
+        print('user %s received chat from %s' % (self.l.parent.email, args[0]['user']['email']))
+        rec_ts = current_milli_time()
+        request_success.fire(request_type='WebSocket',
+                            name="receive_chat_message",
+                            response_time=rec_ts - int(args[0]['client_ts']),
+                            response_length=0)
         pass
 
     def update_document(self, new_text):
@@ -83,8 +107,16 @@ class Websocket():
             pos += len(doc_split[j])+1
         pos -= 1
 
-        self.c.emit("clientTracking.updatePosition", [{"row":row,"column":col,"doc_id":self.main_tex}])
-        self.c.emit("applyOtUpdate", [self.main_tex,{"doc":self.main_tex,"op":[{"p":pos,"i":text}],"v":self.doc_version}])
+        pos_args = {"row":row,"column":col,"doc_id":self.main_tex}
+        doc_args = {"doc":self.main_tex,"op":[{"p":pos,"i":text}],"v":self.doc_version}
+        client_ts = current_milli_time()
+        #     client_rid = str(uuid.uuid4().hex)
+        pos_args['client_ts'] = client_ts
+        doc_args['client_ts'] = client_ts
+        #     args[args_i[0]]['client_rid'] = client_rid
+
+        self.c.emit("clientTracking.updatePosition", [pos_args])
+        self.c.emit("applyOtUpdate", [self.main_tex, doc_args])
         self.pending_text = self.doc_text[:pos]+text+self.doc_text[pos:]
 
     def close(self):
@@ -97,12 +129,13 @@ def template(path):
 
 
 def chat(l):
-    # client_ts = current_milli_time()
+    client_ts = current_milli_time()
     # client_rid = str(uuid.uuid4().hex)
     # l.websocket.c.req_track[client_rid] = dict(name='receive_chat_message', req_ts=client_ts)
     msg = "".join( [random.choice(string.letters) for i in xrange(5)] )
     # p = dict(_csrf=l.csrf_token, content=msg, client_ts=client_ts, client_rid=client_rid)
-    p = dict(_csrf=l.csrf_token, content=msg)
+    # p = dict(_csrf=l.csrf_token, content=msg, client_ts=client_ts)
+    p={'_csrf':l.csrf_token, 'content':msg, 'client_ts':client_ts}
     r = l.client.post("/project/%s/messages" % l.project_id, data=p, name="send_chat_message")
     pass
 
@@ -251,7 +284,21 @@ def set_project(l):
     old_pid = l.project_id if hasattr(l, 'project_id') else None
     join_projects(l)
     projects = get_projects(l)
+
+    proj_loc_map = {
+                    '5ab1062fc2365e043f69239f': '192.168.56.1:8080', #core
+                    #'5ab106cec2365e043f6923a5': '192.168.56.100:8080' #edge
+                    }
+
+    redirect_projs = [p for p in projects if p['id'] in proj_loc_map]
+    force_redirect_projects = True
+    local = True
+    if force_redirect_projects:
+        projects = redirect_projs
+        # print('%s' % projects)
+
     if len(projects):
+
         l.project = random.choice(projects)
         l.project_id = l.project['id']
         # l.project_id = '5a69b3d3ba0c6d042e460407'
@@ -273,6 +320,12 @@ def set_project(l):
 
         if not len(projects):
             share_project(l)
+
+        l.locust.ws_fwd_path = ''
+        # if l.project_id in proj_loc_map:
+        if not local:
+            l.locust.ws_fwd_path = '/redirect_ws'
+
 
         l.websocket = Websocket(l)
         def _receive():
@@ -303,8 +356,8 @@ def set_project(l):
 
 
 class Page(TaskSet):
-    tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30, get_image: 8,  share_project: 5, stop: 20}
-    # tasks = { spell_check: 30}
+    # tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30, get_image: 8,  share_project: 5, stop: 20}
+    tasks = { move_and_write: 30, chat:20, stop:10}
 
 
     def on_start(self):

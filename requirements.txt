@@ -7,3 +7,4 @@ statsd
 pytz
 numpy
 pandas
+redis

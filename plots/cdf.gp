@@ -1,5 +1,7 @@
 #!/usr/bin/gnuplot
 
+#usage
+# gnuplot -e "m=3" cdf.gp
 
 if (!exists("df1")) df1='../out/cloud.30mins.10users-5321'
 if (!exists("df2")) df2='../out/edge.30mins.10users-c9fe'

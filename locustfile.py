@@ -26,6 +26,8 @@ from loadgenerator import project, csrf, randomwords
 # import metrics
 import logparser
 
+
+
 # host = os.environ.get("LOCUST_STATSD_HOST", "localhost")
 # port = os.environ.get("LOCUST_STATSD_PORT", "8125")
 # STATSD = statsd.StatsClient(host, port, prefix='loadgenerator')
@@ -45,7 +47,7 @@ WAIT_STD                = int(os.environ.get("LOCUST_WAIT_STD", "4"))
 TIMESTAMP_START         = os.environ.get("LOCUST_TIMESTAMP_START", '1998-06-02 08:50:00')
 TIMESTAMP_STOP          = os.environ.get("LOCUST_TIMESTAMP_STOP", '1998-06-02 09:50:00')
 WEB_LOGS_PATH           = os.environ.get("LOCUST_LOG_PATH", "logs") # path to nasa/worldcup logs
-NR_SHARELATEX_USERS     = int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", "5"))
+NR_SHARELATEX_USERS     = 1#int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", "5"))
 
 os.environ["LOCUST_MEASUREMENT_NAME"] = MEASUREMENT_NAME
 os.environ["LOCUST_MEASUREMENT_DESCRIPTION"] = MEASUREMENT_DESCRIPTION
@@ -156,6 +158,7 @@ def save_csv(filename):
 def login(l):
     resp = l.client.get("/login", name='get_login_page')
     l.csrf_token = csrf.find_in_page(resp.content)
+
     data = {
         "_csrf": l.csrf_token,
         "email": l.email,
@@ -191,8 +194,8 @@ user = 1#1
 mutex = Lock()
 
 class ProjectOverview(TaskSet):
-    tasks = { project.Page: 100, create_tag: 10, settings: 5, logout: 20}
-    # tasks = { project.Page: 100}
+    # tasks = { project.Page: 100, create_tag: 10, settings: 5, logout: 20}
+    tasks = { project.Page: 100, logout: 20}
 
     def on_start(self):
         global user
@@ -200,6 +203,7 @@ class ProjectOverview(TaskSet):
         mutex.acquire()
         i = NR_SHARELATEX_USERS if (int(user) % NR_SHARELATEX_USERS) == 0 else (int(user) % NR_SHARELATEX_USERS)
         # print "## %d %d" % (user, i)
+
         self.email = "locust%d@sharelatex.dev" % i
         user += Fraction(1, logins_per_acc)
         print('Using user: %s' % self.email)
@@ -225,7 +229,7 @@ class WebsiteUser(HttpLocust):
             self.client_queue = queue
             super(WebsiteUser, self).__init__()
 
-    host = 'http://localhost:8080'
+    host = 'http://core:8080'
     task_set = UserBehavior
     min_wait = 2000
     max_wait = 4000
@@ -427,10 +431,9 @@ def measure():
         sys.stderr.write("unsupported load type: %s" % LOAD_TYPE)
         sys.exit(1)
 
-Thread(target=measure).start()
+# Thread(target=measure).start()
 
-# RequestStats()
 
-# if __name__ == '__main__':
-#     x = WebsiteUser()
-#     x.run()
+if __name__ == '__main__':
+    x = WebsiteUser()
+    x.run()

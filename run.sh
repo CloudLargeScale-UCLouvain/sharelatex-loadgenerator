@@ -64,11 +64,11 @@
 #done
 
 export LOCUST_DURATION=1800
-export LOCUST_USERS=10
+export LOCUST_USERS=5
 export LOCUST_HATCH_RATE=1
 
 export LOCUST_LOAD_TYPE=constant
-export LOCUST_MEASUREMENT_NAME="cloud.30mins.10users"
+export LOCUST_MEASUREMENT_NAME="cloud.$LOCUST_DURATIONsecs.$LOCUST_USERSusers"
 export LOCUST_MEASUREMENT_DESCRIPTION="constant test"
 
 locust -H http://localhost:8080
