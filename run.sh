@@ -64,11 +64,15 @@
 #done
 
 export LOCUST_DURATION=1800
-export LOCUST_USERS=5
+#export LOCUST_DURATION=600
+export LOCUST_USERS=10
 export LOCUST_HATCH_RATE=1
 
 export LOCUST_LOAD_TYPE=constant
-export LOCUST_MEASUREMENT_NAME="cloud.$LOCUST_DURATIONsecs.$LOCUST_USERSusers"
+export LOCUST_MEASUREMENT_NAME="noredir.core.${LOCUST_DURATION}secs.${LOCUST_USERS}users"
 export LOCUST_MEASUREMENT_DESCRIPTION="constant test"
 
+#export PREDEF_PROJECTS='{"5ab1062fc2365e043f69239f":"remote"}'
+
+#locust -H http://core:8080
 locust -H http://localhost:8080

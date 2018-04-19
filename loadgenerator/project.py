@@ -48,11 +48,12 @@ class Websocket():
 
     def update_version(self, args):
         rec_ts = current_milli_time()
-        request_success.fire(request_type='WebSocket',
-                            name="update_text",
-                            response_time=rec_ts - args[0]['client_ts'],
-                            response_length=0)
-
+        if 'client_ts' in args[0]:
+            request_success.fire(request_type='WebSocket',
+                                name="update_text",
+                                response_time=rec_ts - args[0]['client_ts'],
+                                response_length=0)
+            print("update in %s ms" % str(rec_ts - args[0]['client_ts']))
         self.doc_version = args[0]["v"] + 1
         if self.pending_text is not None:
             self.doc_text = self.pending_text
@@ -64,29 +65,31 @@ class Websocket():
     def on_update_position(self, args):
         print('user %s saw user %s moving' % (self.l.parent.email, args[0]['email']))
         rec_ts = current_milli_time()
-        request_success.fire(request_type='WebSocket',
-                            name="update_cursor_position",
-                            response_time=rec_ts - args[0]['client_ts'],
-                            response_length=0)
+        if 'client_ts' in args[0]:
+            request_success.fire(request_type='WebSocket',
+                                name="update_cursor_position",
+                                response_time=rec_ts - args[0]['client_ts'],
+                                response_length=0)
         pass
 
     def on_chat(self, args):
         print('user %s received chat from %s' % (self.l.parent.email, args[0]['user']['email']))
         rec_ts = current_milli_time()
-        request_success.fire(request_type='WebSocket',
-                            name="receive_chat_message",
-                            response_time=rec_ts - int(args[0]['client_ts']),
-                            response_length=0)
+        if 'client_ts' in args[0]:
+            request_success.fire(request_type='WebSocket',
+                                name="receive_chat_message",
+                                response_time=rec_ts - int(args[0]['client_ts']),
+                                response_length=0)
         pass
 
-    def update_document(self, new_text):
-        update = [ self.main_tex,
-                  {"doc": self.main_tex,
-                   "op": [{"d": self.doc_text, "p":0},
-                          {"i": new_text, "p":0}],
-                   "v": self.doc_version}]
-        self.c.emit("applyOtUpdate", update)
-        self.pending_text = new_text
+    # def update_document(self, new_text):
+    #     update = [ self.main_tex,
+    #               {"doc": self.main_tex,
+    #                "op": [{"d": self.doc_text, "p":0},
+    #                       {"i": new_text, "p":0}],
+    #                "v": self.doc_version}]
+    #     self.c.emit("applyOtUpdate", update)
+    #     self.pending_text = new_text
 
     def move_and_write(self, text):
         doc_split = self.doc_text.split('\n')
@@ -285,20 +288,18 @@ def set_project(l):
     join_projects(l)
     projects = get_projects(l)
 
-    proj_loc_map = {
-                    '5ab1062fc2365e043f69239f': '192.168.56.1:8080', #core
-                    #'5ab106cec2365e043f6923a5': '192.168.56.100:8080' #edge
-                    }
+    # l.parent.predef_projects
+    # proj_loc_map = {
+    #                 '5ab1062fc2365e043f69239f': 'remote', #core
+    #                 # '5ab106cec2365e043f6923a5': 'local' #edge
+    #                 }
 
-    redirect_projs = [p for p in projects if p['id'] in proj_loc_map]
-    force_redirect_projects = True
-    local = True
-    if force_redirect_projects:
+    redirect_projs = [p for p in projects if p['id'] in l.parent.predef_projects]
+
+    if len(redirect_projs)>0:
         projects = redirect_projs
-        # print('%s' % projects)
 
     if len(projects):
-
         l.project = random.choice(projects)
         l.project_id = l.project['id']
         # l.project_id = '5a69b3d3ba0c6d042e460407'
@@ -306,6 +307,10 @@ def set_project(l):
         r = create_project(l)
         l.project = r.json()
         l.project_id = l.project["project_id"]
+
+    l.locust.ws_fwd_path = ''
+    if len(redirect_projs)>0 and l.parent.predef_projects[l.project_id] == 'remote':
+            l.locust.ws_fwd_path = '/redirect_ws'
 
     print('Using project %s' % l.project['name'])
 
@@ -320,11 +325,6 @@ def set_project(l):
 
         if not len(projects):
             share_project(l)
-
-        l.locust.ws_fwd_path = ''
-        # if l.project_id in proj_loc_map:
-        if not local:
-            l.locust.ws_fwd_path = '/redirect_ws'
 
 
         l.websocket = Websocket(l)
@@ -357,7 +357,7 @@ def set_project(l):
 
 class Page(TaskSet):
     # tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30, get_image: 8,  share_project: 5, stop: 20}
-    tasks = { move_and_write: 30, chat:20, stop:10}
+    tasks = { move_and_write: 100, spell_check: 90, stop:10}
 
 
     def on_start(self):

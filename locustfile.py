@@ -47,7 +47,8 @@ WAIT_STD                = int(os.environ.get("LOCUST_WAIT_STD", "4"))
 TIMESTAMP_START         = os.environ.get("LOCUST_TIMESTAMP_START", '1998-06-02 08:50:00')
 TIMESTAMP_STOP          = os.environ.get("LOCUST_TIMESTAMP_STOP", '1998-06-02 09:50:00')
 WEB_LOGS_PATH           = os.environ.get("LOCUST_LOG_PATH", "logs") # path to nasa/worldcup logs
-NR_SHARELATEX_USERS     = 1#int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", "5"))
+NR_SHARELATEX_USERS     = int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", "5"))
+PREDEF_PROJECTS         = os.environ.get("PREDEF_PROJECTS", '{"5ab1062fc2365e043f69239f":"remote"}')
 
 os.environ["LOCUST_MEASUREMENT_NAME"] = MEASUREMENT_NAME
 os.environ["LOCUST_MEASUREMENT_DESCRIPTION"] = MEASUREMENT_DESCRIPTION
@@ -164,8 +165,10 @@ def login(l):
         "email": l.email,
         "password": "locust"
     }
+    tb= current_milli_time()
     r = l.client.post("/login", data, name='login')
-
+    ta= current_milli_time()
+    # print ('%s' % str(ta-tb))
     assert r.json().get("redir", None) == "/project"
 
 
@@ -213,7 +216,9 @@ class ProjectOverview(TaskSet):
 
         r = self.client.get("/project", name='get_project_list')
         self.csrf_token = csrf.find_in_page(r.content)
+        self.predef_projects = json.loads(PREDEF_PROJECTS)
         self.nr_users = NR_SHARELATEX_USERS
+
         # assert len(self.projects) > 0, "No project found, create some!"
 
 class UserBehavior(TaskSet):
@@ -229,7 +234,8 @@ class WebsiteUser(HttpLocust):
             self.client_queue = queue
             super(WebsiteUser, self).__init__()
 
-    host = 'http://core:8080'
+    # host = 'http://192.168.56.1:8080'
+    host = 'http://localhost:8080'
     task_set = UserBehavior
     min_wait = 2000
     max_wait = 4000
@@ -431,9 +437,12 @@ def measure():
         sys.stderr.write("unsupported load type: %s" % LOAD_TYPE)
         sys.exit(1)
 
-# Thread(target=measure).start()
-
-
-if __name__ == '__main__':
+is_debug = os.environ.get("PYCHARM", "0") == '1'
+if is_debug:
     x = WebsiteUser()
     x.run()
+else:
+    Thread(target=measure).start()
+
+
+# if __name__ == '__main__':
