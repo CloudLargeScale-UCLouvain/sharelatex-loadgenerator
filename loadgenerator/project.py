@@ -7,19 +7,23 @@ import string
 import uuid
 import json
 import time
+import sys
 from . import ROOT_PATH, csrf, randomwords
 from gevent.hub import ConcurrentObjectUseError
 from locust import TaskSet, task
 from websocket import WebSocketConnectionClosedException
 from locust.events import request_success
 
+
 # from requests import Request, Session
 current_milli_time = lambda: int(round(time.time() * 1000))
+pos_triggered = pos_registered = 0 #delete this in the end
 
 class Websocket():
     def __init__(self, page):
         self.c = socketio.Client(page.locust)
         self.l = page
+        self.sent_doc_version = 0
         self.pending_text = None
         # self.c.on("clientTracking.clientUpdated", self.noop)
         self.c.on("clientTracking.clientUpdated", self.on_update_position)
@@ -44,32 +48,46 @@ class Websocket():
             self.c.recv()
         assert self.doc_version is not None
 
+
     def recv(self): self.c.recv()
 
     def update_version(self, args):
         rec_ts = current_milli_time()
-        if 'client_ts' in args[0]:
+
+        if 'client_ts' in args[0] and self.sent_doc_version != args[0]["v"]:
             request_success.fire(request_type='WebSocket',
                                 name="update_text",
                                 response_time=rec_ts - args[0]['client_ts'],
                                 response_length=0)
-            print("update in %s ms" % str(rec_ts - args[0]['client_ts']))
-        self.doc_version = args[0]["v"] + 1
+            # print("update in %s ms" % str(rec_ts - args[0]['client_ts']))
+
+        # if self.sent_doc_version != args[0]["v"]:
+        #     print('user %s saw an update it didn\'t emit' % (self.l.parent.email))
+
+        self.doc_version = args[0]["v"]+1
         if self.pending_text is not None:
             self.doc_text = self.pending_text
             self.pending_text = None
 
+
     def noop(self, args):
         pass
 
+
+    pos_triggered = pos_registered = 0
     def on_update_position(self, args):
-        print('user %s saw user %s moving' % (self.l.parent.email, args[0]['email']))
+
         rec_ts = current_milli_time()
-        if 'client_ts' in args[0]:
+        if 'client_ts' in args[0] and self.l.parent.email != args[0]['email']:
             request_success.fire(request_type='WebSocket',
                                 name="update_cursor_position",
                                 response_time=rec_ts - args[0]['client_ts'],
                                 response_length=0)
+            # print('user %s saw user %s moving at [%s:%s]' % (self.l.parent.email, args[0]['email'], args[0]['row'], args[0]['column']))
+
+            global pos_registered
+            pos_registered += 1
+
         pass
 
     def on_chat(self, args):
@@ -96,12 +114,14 @@ class Websocket():
         nr_lines = len(doc_split)
         start_i, end_i= 0, nr_lines-1
         for i in range(0, nr_lines):
-            if '\\begin{document}' in doc_split[i]:
+            if '\section{Introduction}' in doc_split[i]:
                 start_i = i+1
             if '\end{document}' in doc_split[i]:
                 end_i = i-1
                 break
 
+        if random.randint(1, 50) == 25:
+            text += '\n' #add a new line occasionally
 
         row = random.randint(start_i, end_i)
         col = len(doc_split[row])
@@ -110,8 +130,16 @@ class Websocket():
             pos += len(doc_split[j])+1
         pos -= 1
 
+        # print('user %s moving at [%s:%s]' % (self.l.parent.email, row, col))
+
+        global pos_triggered
+        pos_triggered += 1
+
+
+        dv = self.doc_version
         pos_args = {"row":row,"column":col,"doc_id":self.main_tex}
-        doc_args = {"doc":self.main_tex,"op":[{"p":pos,"i":text}],"v":self.doc_version}
+        doc_args = {"doc":self.main_tex,"op":[{"p":pos,"i":text}],"v":dv}
+        self.sent_doc_version = dv
         client_ts = current_milli_time()
         #     client_rid = str(uuid.uuid4().hex)
         pos_args['client_ts'] = client_ts
@@ -288,16 +316,10 @@ def set_project(l):
     join_projects(l)
     projects = get_projects(l)
 
-    # l.parent.predef_projects
-    # proj_loc_map = {
-    #                 '5ab1062fc2365e043f69239f': 'remote', #core
-    #                 # '5ab106cec2365e043f6923a5': 'local' #edge
-    #                 }
+    predef = [p for p in projects if p['name'] in l.parent.predef_projects]
 
-    redirect_projs = [p for p in projects if p['id'] in l.parent.predef_projects]
-
-    if len(redirect_projs)>0:
-        projects = redirect_projs
+    if len(predef)>0:
+        projects = predef
 
     if len(projects):
         l.project = random.choice(projects)
@@ -309,8 +331,9 @@ def set_project(l):
         l.project_id = l.project["project_id"]
 
     l.locust.ws_fwd_path = ''
-    if len(redirect_projs)>0 and l.parent.predef_projects[l.project_id] == 'remote':
-            l.locust.ws_fwd_path = '/redirect_ws'
+    # if len(redirect_projs)>0 and l.parent.predef_projects[l.project_id] == 'remote':
+    if l.parent.koala_enabled:
+            l.locust.ws_fwd_path = 'object/%s/' % l.project_id
 
     print('Using project %s' % l.project['name'])
 
@@ -333,6 +356,7 @@ def set_project(l):
                 while True:
                     l.websocket.recv()
             except (ConcurrentObjectUseError, WebSocketConnectionClosedException):
+                l.interrupt()
                 print("websocket closed")
         gevent.spawn(_receive)
 
@@ -357,8 +381,8 @@ def set_project(l):
 
 class Page(TaskSet):
     # tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30, get_image: 8,  share_project: 5, stop: 20}
-    tasks = { move_and_write: 100, spell_check: 90, stop:10}
-
+    # tasks = { move_and_write: 100, spell_check: 90, stop:10}
+    tasks = { move_and_write: 100}
 
     def on_start(self):
         set_project(self)

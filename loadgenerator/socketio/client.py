@@ -19,12 +19,12 @@ class Client():
         self.req_track={}
         # self.wsdict = {'clientTracking.updatePosition':'update_cursor_position', 'applyOtUpdate':'update_text'}
         baseurl = urlparse(locust.client.base_url).netloc
-        resp = locust.client.get("%s/socket.io/1/" % locust.ws_fwd_path,
+        resp = locust.client.get("/%ssocket.io/1/" % locust.ws_fwd_path,
                                  params={"t": int(time.time()) * 1000},
                                  name="get_socket.io")
         fields = resp.content.split(":")
         assert len(fields) == 4, ("unexpected response for socketio handshake: '%s'" % resp.content)
-        url = "ws://%s%s/socket.io/1/websocket/%s" % (baseurl,locust.ws_fwd_path, fields[0])
+        url = "ws://%s/%ssocket.io/1/websocket/%s" % (baseurl,locust.ws_fwd_path, fields[0])
         headers = {"Cookie": resp.request.headers["Cookie"]}
         self.ws = create_connection(url, header=headers)
         m,_ = self._recv()

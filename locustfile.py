@@ -47,13 +47,19 @@ WAIT_STD                = int(os.environ.get("LOCUST_WAIT_STD", "4"))
 TIMESTAMP_START         = os.environ.get("LOCUST_TIMESTAMP_START", '1998-06-02 08:50:00')
 TIMESTAMP_STOP          = os.environ.get("LOCUST_TIMESTAMP_STOP", '1998-06-02 09:50:00')
 WEB_LOGS_PATH           = os.environ.get("LOCUST_LOG_PATH", "logs") # path to nasa/worldcup logs
-NR_SHARELATEX_USERS     = int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", "5"))
-PREDEF_PROJECTS         = os.environ.get("PREDEF_PROJECTS", '{"5ab1062fc2365e043f69239f":"remote"}')
+NR_SHARELATEX_USERS     = int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", USERS))
+PREDEF_PROJECTS         = os.environ.get("PREDEF_PROJECTS", '')
+KOALA_ENABLED           = int(os.environ.get("KOALA_ENABLED", "0"))
+HOST                    = os.environ.get("HOST", '')
 
 os.environ["LOCUST_MEASUREMENT_NAME"] = MEASUREMENT_NAME
 os.environ["LOCUST_MEASUREMENT_DESCRIPTION"] = MEASUREMENT_DESCRIPTION
 
+mutex = Lock()
+
 current_milli_time = lambda: int(round(time.time() * 1000))
+nr_success = nr_failed = nr_error = 0
+
 
 class RequestStats():
     def __init__(self):
@@ -69,6 +75,10 @@ class RequestStats():
             self.stats[name] = []
         self.stats[name].append(response_time)
         self.stats['Total'].append(response_time)
+        global nr_success
+        mutex.acquire()
+        nr_success += 1
+        mutex.release()
         # if len(self.stats[name]) > 20:
         #     save_stats('lesh')
         # self.stats[name].append({'rt':response_time})
@@ -78,11 +88,19 @@ class RequestStats():
         # STATSD.timing(request_type + "-" + name + "-error", response_time)
         # if not request_type.startswith("WebSocket"):
         print("%s - %s: %s" % (request_type, name, response_time))
+        global nr_failed
+        mutex.acquire()
+        nr_failed += 1
+        mutex.release()
         # STATSD.timing("requests_failure", response_time)
 
     def locust_error(self, locust_instance=None, exception=None, tb=None):
         # STATSD.incr(locust_instance.__class__.__name__ + "-" + exception.__class__.__name__)
         # STATSD.incr("requests_error")
+        global nr_error
+        mutex.acquire()
+        nr_error += 1
+        mutex.release()
         pass
 
 rs = RequestStats()
@@ -115,8 +133,14 @@ def save_stats(filename):
         if i != 11:
             str_res += '%s ' % (0.1*i)
     # print str_res
-    open('out/%s'% filename, 'w').write(str_res)
+    open('out/cdf.%s'% filename, 'w').write(str_res)
+    print "#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error)
     pass
+
+def save_raw_stats(filename):
+    print "#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error)
+    print "#pos triggered: %s, pos_registered: %s #" % (project.pos_triggered, project.pos_registered)
+    open('out/raw.%s'% filename, 'w').write(json.dumps(rs.stats))
 
 def save_csv(filename):
     cvs = stats.distribution_csv()
@@ -192,21 +216,19 @@ def logout(l):
     l.interrupt(reschedule=True)
 
 
-logins_per_acc = 2
+logins_per_acc = USERS / NR_SHARELATEX_USERS
 user = 1#1
-mutex = Lock()
+
 
 class ProjectOverview(TaskSet):
     # tasks = { project.Page: 100, create_tag: 10, settings: 5, logout: 20}
-    tasks = { project.Page: 100, logout: 20}
-
+    # tasks = { project.Page: 80, logout: 20}
+    tasks = { project.Page: 100 }
     def on_start(self):
         global user
         global logins_per_acc
         mutex.acquire()
         i = NR_SHARELATEX_USERS if (int(user) % NR_SHARELATEX_USERS) == 0 else (int(user) % NR_SHARELATEX_USERS)
-        # print "## %d %d" % (user, i)
-
         self.email = "locust%d@sharelatex.dev" % i
         user += Fraction(1, logins_per_acc)
         print('Using user: %s' % self.email)
@@ -216,9 +238,9 @@ class ProjectOverview(TaskSet):
 
         r = self.client.get("/project", name='get_project_list')
         self.csrf_token = csrf.find_in_page(r.content)
-        self.predef_projects = json.loads(PREDEF_PROJECTS)
+        self.predef_projects = PREDEF_PROJECTS.split(',')
         self.nr_users = NR_SHARELATEX_USERS
-
+        self.koala_enabled = KOALA_ENABLED == 1
         # assert len(self.projects) > 0, "No project found, create some!"
 
 class UserBehavior(TaskSet):
@@ -235,10 +257,11 @@ class WebsiteUser(HttpLocust):
             super(WebsiteUser, self).__init__()
 
     # host = 'http://192.168.56.1:8080'
-    host = 'http://localhost:8080'
+    if len(HOST) > 0:
+        host = HOST
     task_set = UserBehavior
-    min_wait = 2000
-    max_wait = 4000
+    min_wait = 1000
+    max_wait = 1000
 
 
 
@@ -254,7 +277,9 @@ def stop_measure(started_at):
     metadata['description'] = metadata['measurement_description']
     # metrics.export(metadata, started_at, ended_at)
 
-    save_stats('%s-%s'% (metadata['name'],str(uuid.uuid4())[:4]))
+    filename = '%s.%s'% (metadata['name'],str(uuid.uuid4())[:4])
+    # save_stats(filename)
+    save_raw_stats(filename)
     # open('out/%s-%s'% (metadata['name'],ended_at), 'w').write(cvs)
 
     os.kill(os.getpid(), signal.SIGINT)

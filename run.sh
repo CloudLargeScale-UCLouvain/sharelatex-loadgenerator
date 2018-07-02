@@ -63,16 +63,24 @@
 #    locust -H http://sharelatex.local
 #done
 
-export LOCUST_DURATION=1800
-#export LOCUST_DURATION=600
-export LOCUST_USERS=10
-export LOCUST_HATCH_RATE=1
+#export LOCUST_DURATION=1800
+export LOCUST_DURATION=600
+export LOCUST_USERS=5
+export LOCUST_HATCH_RATE=$LOCUST_USERS
 
+export KOALA_ENABLED=0 #set manually, comment the line below!
+export KOALA_ENABLED=$(docker ps | grep -c "sharelatexdockerized_koala_1") #check if koala container is running
+
+export PREDEF_PROJECTS='aaa'
 export LOCUST_LOAD_TYPE=constant
-export LOCUST_MEASUREMENT_NAME="noredir.core.${LOCUST_DURATION}secs.${LOCUST_USERS}users"
+export LOCUST_MEASUREMENT_NAME="core.${LOCUST_DURATION}secs.${LOCUST_USERS}users.${KOALA_ENABLED}koala"
 export LOCUST_MEASUREMENT_DESCRIPTION="constant test"
 
-#export PREDEF_PROJECTS='{"5ab1062fc2365e043f69239f":"remote"}'
 
-#locust -H http://core:8080
-locust -H http://localhost:8080
+echo "#####EXPERIMENT START########"
+
+for i in $(seq 1 1); do
+    locust -H http://localhost:8080
+done
+
+paplay /usr/share/sounds/ubuntu/notifications/Positive.ogg
