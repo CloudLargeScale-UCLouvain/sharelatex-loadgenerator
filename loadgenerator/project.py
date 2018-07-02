@@ -9,7 +9,7 @@ import json
 import time
 import sys
 from . import ROOT_PATH, csrf, randomwords
-from gevent.hub import ConcurrentObjectUseError
+from gevent.exceptions import ConcurrentObjectUseError
 from locust import TaskSet, task
 from websocket import WebSocketConnectionClosedException
 from locust.events import request_success
