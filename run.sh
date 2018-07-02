@@ -89,12 +89,11 @@ export LOCUST_MEASUREMENT_NAME="${HOST_TYPE}.${LOCUST_DURATION}secs.${LOCUST_USE
 export LOCUST_MEASUREMENT_DESCRIPTION="constant test"
 
 
-echo http://${HOSTNAME}:8080
-echo $LOCUST_MEASUREMENT_NAME
-# echo "#####EXPERIMENT START########"
 
-# for i in $(seq 1 1); do
-#     locust -H http://${HOSTNAME}:8080
-# done
+echo "#####EXPERIMENT START########"
+
+for i in $(seq 1 1); do
+    locust -H http://${HOSTNAME}:8080
+done
 
 # paplay /usr/share/sounds/ubuntu/notifications/Positive.ogg
