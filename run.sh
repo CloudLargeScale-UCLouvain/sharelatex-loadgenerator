@@ -64,6 +64,16 @@
 #done
 
 #export LOCUST_DURATION=1800
+
+HOSTNAME='localhost'
+HOST_TYPE='edge'
+
+
+if [ "$HOSTNAME" != "localhost" ]
+then  
+	HOST_TYPE='core'
+fi
+
 export LOCUST_DURATION=600
 export LOCUST_USERS=5
 export LOCUST_HATCH_RATE=$LOCUST_USERS
@@ -71,16 +81,20 @@ export LOCUST_HATCH_RATE=$LOCUST_USERS
 export KOALA_ENABLED=0 #set manually, comment the line below!
 export KOALA_ENABLED=$(docker ps | grep -c "sharelatexdockerized_koala_1") #check if koala container is running
 
+
 export PREDEF_PROJECTS='aaa'
 export LOCUST_LOAD_TYPE=constant
-export LOCUST_MEASUREMENT_NAME="core.${LOCUST_DURATION}secs.${LOCUST_USERS}users.${KOALA_ENABLED}koala"
+
+export LOCUST_MEASUREMENT_NAME="${HOST_TYPE}.${LOCUST_DURATION}secs.${LOCUST_USERS}users.${KOALA_ENABLED}koala"
 export LOCUST_MEASUREMENT_DESCRIPTION="constant test"
 
 
-echo "#####EXPERIMENT START########"
+echo http://${HOSTNAME}:8080
+echo $LOCUST_MEASUREMENT_NAME
+# echo "#####EXPERIMENT START########"
 
-for i in $(seq 1 1); do
-    locust -H http://localhost:8080
-done
+# for i in $(seq 1 1); do
+#     locust -H http://${HOSTNAME}:8080
+# done
 
-paplay /usr/share/sounds/ubuntu/notifications/Positive.ogg
+# paplay /usr/share/sounds/ubuntu/notifications/Positive.ogg
