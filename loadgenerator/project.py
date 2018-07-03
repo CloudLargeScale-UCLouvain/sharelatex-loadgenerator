@@ -91,13 +91,14 @@ class Websocket():
         pass
 
     def on_chat(self, args):
-        print('user %s received chat from %s' % (self.l.parent.email, args[0]['user']['email']))
+
         rec_ts = current_milli_time()
-        if 'client_ts' in args[0]:
+        if 'client_ts' in args[0] and self.l.parent.email != args[0]['user']['email']:
             request_success.fire(request_type='WebSocket',
                                 name="receive_chat_message",
                                 response_time=rec_ts - int(args[0]['client_ts']),
                                 response_length=0)
+            # print('user %s received chat from %s' % (self.l.parent.email, args[0]['user']['email']))
         pass
 
     # def update_document(self, new_text):
@@ -410,7 +411,7 @@ def set_project(l):
 
 class Page(TaskSet):
     # tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30, get_image: 8,  share_project: 5, stop: 20}
-    tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30}
+    tasks = { move_and_write: 100, spell_check: 90, compile: 20, chat: 20, show_history: 10}
     # tasks = { move_and_write: 100, spell_check: 90, stop:10}
     # tasks = { move_and_write: 100}
 
