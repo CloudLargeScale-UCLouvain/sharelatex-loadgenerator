@@ -82,7 +82,7 @@ export KOALA_ENABLED=0 #set manually, comment the line below!
 export KOALA_ENABLED=$(docker ps | grep -c "sharelatexdockerized_koala_1") #check if koala container is running
 
 
-export PREDEF_PROJECTS='aaa'
+export PREDEF_PROJECTS='fff'
 export LOCUST_LOAD_TYPE=constant
 
 export LOCUST_MEASUREMENT_NAME="${HOST_TYPE}.${LOCUST_DURATION}secs.${LOCUST_USERS}users.${KOALA_ENABLED}koala"

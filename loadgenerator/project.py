@@ -196,6 +196,19 @@ def share_project(l):
     pass
 
 
+def share_project_all(l):
+    members = json.loads(l.client.get("/project/%s/members" % l.project_id, name="get_project_members").content)['members']
+    member_emails = [m['email'] for m in members]
+
+    for i in range(1,l.parent.nr_users+1):
+        email = "locust%s@sharelatex.dev" % i
+        if email == l.parent.email or email in member_emails:
+            continue
+        p = dict(_csrf=l.csrf_token, email=email, privileges="readAndWrite")
+        r = l.client.post("/project/%s/invite" % l.project_id, data=p, name="share_project")
+    pass
+
+
 def spell_check(l):
     # data = dict(language="en", _csrf=l.csrf_token, words=randomwords.sample(1, 1), token=l.user_id)
     data = dict(language="en", _csrf=l.csrf_token, words=['hello', 'from', 'thi', 'adher', 'sajd'], token=l.user_id)
@@ -255,13 +268,13 @@ def get_image(l):
         r = l.client.get("/project/%s/file/%s" % (l.project_id, img), name='get_image')
     pass
 
-
-def find_user_id(doc):
-    # window.csrfToken = "DwSsXuVc-uECsSv6dW5ifI4025HacsODuhb8"
-    user = re.search('window.user_id = \'([^\']+)\'', doc, re.IGNORECASE)
-    assert user, "No user found in response"
-    return user.group(1)
-    # return json.loads(user.group(1))["id"]
+#
+# def find_user_id(doc):
+#     # window.csrfToken = "DwSsXuVc-uECsSv6dW5ifI4025HacsODuhb8"
+#     user = re.search('window.user_id = \'([^\']+)\'', doc, re.IGNORECASE)
+#     assert user, "No user found in response"
+#     return user.group(1)
+#     # return json.loads(user.group(1))["id"]
 
 
 def clear_projects(l):
@@ -275,9 +288,7 @@ def clear_project(l, project_id):
                     name="delete_project")
 
 
-def create_project(l):
-    pname = randomwords.sample(2, 2)
-    pname = "%s %s" % (pname[0], pname[1])
+def create_project(l, pname):
     d = {"_csrf": l.parent.csrf_token, "projectName": pname, "template": None}
     r = l.client.post("/project/new", json=d, name="create_project")
     return r
@@ -315,18 +326,34 @@ def set_project(l):
     old_pid = l.project_id if hasattr(l, 'project_id') else None
     join_projects(l)
     projects = get_projects(l)
+    l.user_id = l.parent.user_id
 
     predef = [p for p in projects if p['name'] in l.parent.predef_projects]
 
     if len(predef)>0:
         projects = predef
+    else:
+        if len(l.parent.predef_projects) and len(l.parent.predef_projects[0]):
+            projects = []
+            for pname in l.parent.predef_projects:
+                #create these projects and share them with everybody
+                new_p = create_project(l, pname).json()
+                new_p['id'] = new_p['project_id']
+                new_p['name'] = pname
+                new_p['owner'] = {'_id':l.user_id}
+                # share_project_all(l, new_p['id'])
+                projects.append(new_p)
+
+    
 
     if len(projects):
         l.project = random.choice(projects)
         l.project_id = l.project['id']
         # l.project_id = '5a69b3d3ba0c6d042e460407'
     else:
-        r = create_project(l)
+        pname = randomwords.sample(2, 2)
+        pname = "%s %s" % (pname[0], pname[1])
+        r = create_project(l, pname)
         l.project = r.json()
         l.project_id = l.project["project_id"]
 
@@ -335,20 +362,22 @@ def set_project(l):
     if l.parent.koala_enabled:
             l.locust.ws_fwd_path = 'object/%s/' % l.project_id
 
-    print('Using project %s' % l.project['name'])
+    print('User %s is using project %s' % (l.parent.email , l.project['name']))
 
     if l.project_id != old_pid:
         page = l.client.get("/project/%s" % l.project_id, name="open_project")
         l.csrf_token = csrf.find_in_page(page.content)
-        l.user_id = find_user_id(page.content)
+        # l.user_id = find_user_id(page.content)
 
         d = {"shouldBroadcast": False, "_csrf": l.csrf_token}
         res = l.client.post("/project/%s/references/indexAll" % l.project_id, params=d, name="get_references")
         res = l.client.get("/project/%s/metadata" % l.project_id, name="get_project_metadata")
 
-        if not len(projects):
-            share_project(l)
 
+        # if not len(projects):
+        # share_project(l)
+        # if l.project['owner']['_id'] == l.user_id:
+        #     share_project_all(l)
 
         l.websocket = Websocket(l)
         def _receive():
@@ -381,8 +410,9 @@ def set_project(l):
 
 class Page(TaskSet):
     # tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30, get_image: 8,  share_project: 5, stop: 20}
+    tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30}
     # tasks = { move_and_write: 100, spell_check: 90, stop:10}
-    tasks = { move_and_write: 100}
+    # tasks = { move_and_write: 100}
 
     def on_start(self):
         set_project(self)

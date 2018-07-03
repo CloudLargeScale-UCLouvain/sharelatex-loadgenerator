@@ -140,6 +140,8 @@ def save_stats(filename):
 def save_raw_stats(filename):
     print "#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error)
     print "#pos triggered: %s, pos_registered: %s #" % (project.pos_triggered, project.pos_registered)
+    if not os.path.exists('out'):
+        os.makedirs('')
     open('out/raw.%s'% filename, 'w').write(json.dumps(rs.stats))
 
 def save_csv(filename):
@@ -195,6 +197,17 @@ def login(l):
     # print ('%s' % str(ta-tb))
     assert r.json().get("redir", None) == "/project"
 
+    resp = l.client.get("/user/settings", name='get_settings')
+    l.user_id = find_user_id(resp.content)
+
+    pass
+
+def find_user_id(doc):
+    # window.csrfToken = "DwSsXuVc-uECsSv6dW5ifI4025HacsODuhb8"
+    user = re.search('window.user_id = \'([^\']+)\'', doc, re.IGNORECASE)
+    assert user, "No user found in response"
+    return user.group(1)
+    # return json.loads(user.group(1))["id"]
 
 def settings(l):
     l.client.get("/user/settings", name='get_settings')
