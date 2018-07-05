@@ -76,10 +76,12 @@ fi
 
 export LOCUST_DURATION=600
 export LOCUST_USERS=5
+export LOCUST_WAIT_MIN=1000
+export LOCUST_WAIT_MAX=1000
 export LOCUST_HATCH_RATE=$LOCUST_USERS
 
 export KOALA_ENABLED=0 #set manually, comment the line below!
-export KOALA_ENABLED=$(docker ps | grep -c "sharelatexdockerized_koala_1") #check if koala container is running
+export KOALA_ENABLED=$(docker ps | grep -c "koala_1") #check if koala container is running
 
 
 export PREDEF_PROJECTS='fff'

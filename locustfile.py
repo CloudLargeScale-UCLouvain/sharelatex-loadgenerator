@@ -44,6 +44,8 @@ USER_MEAN               = int(os.environ.get("LOCUST_USER_MEAN", "20"))
 USER_STD                = int(os.environ.get("LOCUST_USER_STD", "5"))
 WAIT_MEAN               = int(os.environ.get("LOCUST_WAIT_MEAN", "10"))
 WAIT_STD                = int(os.environ.get("LOCUST_WAIT_STD", "4"))
+WAIT_MIN                = int(os.environ.get("LOCUST_WAIT_MIN", "2000"))
+WAIT_MAX                = int(os.environ.get("LOCUST_WAIT_MAX", "2000"))
 TIMESTAMP_START         = os.environ.get("LOCUST_TIMESTAMP_START", '1998-06-02 08:50:00')
 TIMESTAMP_STOP          = os.environ.get("LOCUST_TIMESTAMP_STOP", '1998-06-02 09:50:00')
 WEB_LOGS_PATH           = os.environ.get("LOCUST_LOG_PATH", "logs") # path to nasa/worldcup logs
@@ -191,9 +193,9 @@ def login(l):
         "email": l.email,
         "password": "locust"
     }
-    tb= current_milli_time()
+    # tb= current_milli_time()
     r = l.client.post("/login", data, name='login')
-    ta= current_milli_time()
+    # ta= current_milli_time()
     # print ('%s' % str(ta-tb))
     assert r.json().get("redir", None) == "/project"
 
@@ -273,8 +275,8 @@ class WebsiteUser(HttpLocust):
     if len(HOST) > 0:
         host = HOST
     task_set = UserBehavior
-    min_wait = 1000
-    max_wait = 1000
+    min_wait = WAIT_MIN
+    max_wait = WAIT_MAX
 
 
 

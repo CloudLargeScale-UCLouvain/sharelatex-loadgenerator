@@ -242,6 +242,7 @@ def show_history(l):
 
 
 def compile(l):
+    ts = current_milli_time()
     d = {"rootDoc_id": l.websocket.root_folder['_id'] ,"draft": False,"_csrf": l.csrf_token}
     r1 = l.client.post("/project/%s/compile" % l.project_id,
                        json=d,
@@ -250,12 +251,15 @@ def compile(l):
     if resp["status"] == "too-recently-compiled":
         return
     files = resp["outputFiles"]
-    l.client.get("/project/%s/output/output.log" % l.project_id,
-            params={"build": files[0]["build"]},
-            name="get_compile_log")
+    # l.client.get("/project/%s/output/output.log" % l.project_id,
+    #         params={"build": files[0]["build"]},
+    #         name="get_compile_log")
+
     l.client.get("/project/%s/output/output.pdf" % l.project_id,
             params={"build": files[0]["build"], "compileGroup": "standard", "pdfng": True},
             name="get_compile_pdf")
+    te = current_milli_time()
+    request_success.fire(request_type='GET', name="full_compile",response_time=(te-ts), response_length=0)
 
 
 def get_contacts(l):
