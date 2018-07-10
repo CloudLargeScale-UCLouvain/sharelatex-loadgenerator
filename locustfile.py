@@ -38,6 +38,7 @@ MEASUREMENT_NAME        = os.environ.get("LOCUST_MEASUREMENT_NAME", "measurement
 MEASUREMENT_DESCRIPTION = os.environ.get("LOCUST_MEASUREMENT_DESCRIPTION", "linear increase")
 DURATION                = int(os.environ.get("LOCUST_DURATION", "20"))
 USERS                   = int(os.environ.get("LOCUST_USERS", '10'))
+PORT                   = os.environ.get("LOCUST_PORT", '8089')
 USER_START_INDEX        = int(os.environ.get("LOCUST_USER_START_INDEX", '1'))
 HATCH_RATE              = float(os.environ.get("LOCUST_HATCH_RATE", "1"))
 LOAD_TYPE               = os.environ.get("LOCUST_LOAD_TYPE", "constant") # linear, constant, random, nasa, worldcup
@@ -333,7 +334,7 @@ def constant_measure(*args, **kw):
 
 def start_hatch(users, hatch_rate):
     payload = dict(locust_count=users, hatch_rate=hatch_rate)
-    r = requests.post("http://localhost:8089/swarm", data=payload)
+    r = requests.post("http://localhost:%s/swarm" % PORT, data=payload)
     print(r.text)
 
 def print_color(text):
