@@ -25,7 +25,7 @@ import numpy as np
 from loadgenerator import project, csrf, randomwords
 # import metrics
 import logparser
-import ast
+import socket
 
 
 
@@ -149,7 +149,7 @@ def save_raw_stats(filename):
     if not os.path.exists('out'):
         os.makedirs('out')
     open('out/raw.%s'% filename, 'w').write(json.dumps(rs.stats))
-    open('out/run.%s'% filename, 'w').write(open('run.sh', 'r').read())
+    open('out/run.%s.%s'% (socket.gethostname(), filename), 'w').write(open('run.sh', 'r').read())
 
 
 def save_csv(filename):

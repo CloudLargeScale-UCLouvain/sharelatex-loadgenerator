@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-HOSTNAME='core'
+HOSTNAME='localhost'
 HOST_TYPE='edge'
 
 if [ "$HOSTNAME" != "localhost" ]
@@ -18,7 +18,7 @@ export LOCUST_HATCH_RATE=$LOCUST_USERS
 export KOALA_ENABLED=0 #set manually, comment the line below!
 export KOALA_ENABLED=$(docker ps | grep -c "koala_1") #check if koala container is running
 
-export PREDEF_PROJECTS='exp1-core'
+export PREDEF_PROJECTS='exp1-edge'
 export PAGE_TASKS='{ "move_and_write": 100, "spell_check": 90, "chat": 20}'
 #export PAGE_TASKS='{ "move_and_write": 1, "compile": 5, "show_history": 4}'
 export PROJECT_OVERVIEW_TASKS='{"project.Page": 100}'
