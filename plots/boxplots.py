@@ -8,7 +8,9 @@ def main():
 
     # files = ['raw.core.600secs.5users.0koala.5e92', 'raw.core.600secs.5users.1koala.13c7'] #koala overhead
     # files = ['remote/raw.core.600secs.5users.0koala.0b52', 'remote/raw.edge.600secs.5users.0koala.171e'] #edge/core 20 ms update_text
-    files = ['remote/raw.core.600secs.5users.1koala.1eaa','remote/raw.edge.600secs.5users.0koala.80c3'] #edge/core 50 ms update_text
+    # files = ['remote/raw.core.600secs.5users.1koala.1eaa','remote/raw.edge.600secs.5users.0koala.80c3'] #edge/core 50 ms update_text
+    files = ['remote/raw.core.600secs.5users.1koala.d65b','remote/raw.edge.600secs.5users.1koala.e481'] #edge/core 50 ms update_text
+
     #files = ['remote/raw.core.1800secs.2users.1koala.7058','remote/raw.edge.1800secs.2users.1koala.bb8c'] #compile
 
     filters=['update_text']
@@ -23,7 +25,8 @@ def main():
     filters=['receive_chat_message']
     data12,labels12 = get_data(files, filters)
 
-    files = ['remote/raw.core.1800secs.2users.1koala.7058','remote/raw.edge.1800secs.2users.1koala.bb8c'] #compil
+    # files = ['remote/raw.core.1800secs.2users.1koala.7058','remote/raw.edge.1800secs.2users.1koala.bb8c'] #compil
+    files = ['remote/raw.core.1800secs.2users.1koala.a2c8','remote/raw.edge.1800secs.2users.1koala.7540'] #compil
 
     filters=['full_compile']
     data10,labels10 = get_data(files, filters)
@@ -33,7 +36,7 @@ def main():
 
 
     labels=['core', 'edge']
-    fliers = True
+    fliers = False
 
     rows = 2
     cols = 3
@@ -76,16 +79,19 @@ def main():
 
 def get_data(files, filters):
     res = {}
+    ids = []
     for file in files:
         file_lab = file.split('.')[1] #core or edge
         # file_lab = 'with koala' if file.split('.')[4] == '1koala' else 'no koala'
         unique = file.split('.')[5]
         with open('../out/%s' % file ) as f:
             res['%s-%s' %(file_lab,unique)] = json.load(f)
+            ids.append('%s-%s' %(file_lab,unique))
+
 
     data =[]
     labels = []
-    for l in res:
+    for l in ids:
         for k in res[l]:
             if k in filters:
                 data.append(res[l][k])

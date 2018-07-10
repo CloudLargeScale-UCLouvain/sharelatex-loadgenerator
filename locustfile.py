@@ -25,6 +25,8 @@ import numpy as np
 from loadgenerator import project, csrf, randomwords
 # import metrics
 import logparser
+import ast
+
 
 
 
@@ -36,6 +38,7 @@ MEASUREMENT_NAME        = os.environ.get("LOCUST_MEASUREMENT_NAME", "measurement
 MEASUREMENT_DESCRIPTION = os.environ.get("LOCUST_MEASUREMENT_DESCRIPTION", "linear increase")
 DURATION                = int(os.environ.get("LOCUST_DURATION", "20"))
 USERS                   = int(os.environ.get("LOCUST_USERS", '10'))
+USER_START_INDEX        = int(os.environ.get("LOCUST_USER_START_INDEX", '1'))
 HATCH_RATE              = float(os.environ.get("LOCUST_HATCH_RATE", "1"))
 LOAD_TYPE               = os.environ.get("LOCUST_LOAD_TYPE", "constant") # linear, constant, random, nasa, worldcup
 SPAWN_WAIT_MEAN         = int(os.environ.get("LOCUST_SPAWN_WAIT_MEAN", "10"))
@@ -53,6 +56,7 @@ NR_SHARELATEX_USERS     = int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", USERS
 PREDEF_PROJECTS         = os.environ.get("PREDEF_PROJECTS", '')
 KOALA_ENABLED           = int(os.environ.get("KOALA_ENABLED", "0"))
 HOST                    = os.environ.get("HOST", '')
+PROJECT_OVERVIEW_TASKS  = os.environ.get("PROJECT_OVERVIEW_TASKS", '')
 
 os.environ["LOCUST_MEASUREMENT_NAME"] = MEASUREMENT_NAME
 os.environ["LOCUST_MEASUREMENT_DESCRIPTION"] = MEASUREMENT_DESCRIPTION
@@ -143,8 +147,10 @@ def save_raw_stats(filename):
     print "#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error)
     print "#pos triggered: %s, pos_registered: %s #" % (project.pos_triggered, project.pos_registered)
     if not os.path.exists('out'):
-        os.makedirs('')
+        os.makedirs('out')
     open('out/raw.%s'% filename, 'w').write(json.dumps(rs.stats))
+    open('out/run.%s'% filename, 'w').write(open('run.sh', 'r').read())
+
 
 def save_csv(filename):
     cvs = stats.distribution_csv()
@@ -232,18 +238,37 @@ def logout(l):
 
 
 logins_per_acc = USERS / NR_SHARELATEX_USERS
-user = 1#1
+user = 1
 
 
 class ProjectOverview(TaskSet):
     # tasks = { project.Page: 100, create_tag: 10, settings: 5, logout: 20}
+    tasks = { project.Page: 0, create_tag: 0, settings: 0, logout: 0}
+    if len(PROJECT_OVERVIEW_TASKS):
+        t = json.loads(PROJECT_OVERVIEW_TASKS)
+        if 'project.Page' in t: tasks[project.Page] = t['project.Page']
+        if 'create_tag' in t: tasks[create_tag] = t['create_tag']
+        if 'settings' in t: tasks[create_tag] = t['settings']
+        if 'logout' in t: tasks[logout] = t['logout']
+
+
     # tasks = { project.Page: 80, logout: 20}
-    tasks = { project.Page: 100 }
+    # tasks = { project.Page: 100 }
+
+
+
+
+
     def on_start(self):
         global user
         global logins_per_acc
         mutex.acquire()
-        i = NR_SHARELATEX_USERS if (int(user) % NR_SHARELATEX_USERS) == 0 else (int(user) % NR_SHARELATEX_USERS)
+
+        rem = int(user) % NR_SHARELATEX_USERS
+
+        i = NR_SHARELATEX_USERS if rem == 0 else rem
+        i += USER_START_INDEX-1
+
         self.email = "locust%d@sharelatex.dev" % i
         user += Fraction(1, logins_per_acc)
         print('Using user: %s' % self.email)

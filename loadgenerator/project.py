@@ -19,6 +19,8 @@ from locust.events import request_success
 current_milli_time = lambda: int(round(time.time() * 1000))
 pos_triggered = pos_registered = 0 #delete this in the end
 
+PAGE_TASKS  = os.environ.get("PAGE_TASKS", '')
+
 class Websocket():
     def __init__(self, page):
         self.c = socketio.Client(page.locust)
@@ -415,9 +417,22 @@ def set_project(l):
 
 class Page(TaskSet):
     # tasks = { move_and_write: 100, spell_check: 90, compile: 50, chat: 30, show_history: 30, get_image: 8,  share_project: 5, stop: 20}
-    tasks = { move_and_write: 100, spell_check: 90, compile: 20, chat: 20, show_history: 10}
+    # tasks = { move_and_write: 100, spell_check: 90, compile: 20, chat: 20, show_history: 10}
     # tasks = { move_and_write: 100, spell_check: 90, stop:10}
     # tasks = { move_and_write: 100}
+
+    tasks = { move_and_write: 0, spell_check: 0, compile: 0, chat: 0, show_history: 0, get_image: 0,  share_project: 0, stop: 0}
+    if len(PAGE_TASKS):
+        t = json.loads(PAGE_TASKS)
+        if 'move_and_write' in t: tasks[move_and_write] = t['move_and_write']
+        if 'spell_check' in t: tasks[spell_check] = t['spell_check']
+        if 'compile' in t: tasks[compile] = t['compile']
+        if 'chat' in t: tasks[chat] = t['chat']
+        if 'show_history' in t: tasks[show_history] = t['show_history']
+        if 'get_image' in t: tasks[get_image] = t['get_image']
+        if 'share_project' in t: tasks[share_project] = t['share_project']
+        if 'stop' in t: tasks[stop] = t['stop']
+
 
     def on_start(self):
         set_project(self)
