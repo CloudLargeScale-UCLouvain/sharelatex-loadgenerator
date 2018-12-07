@@ -322,8 +322,9 @@ def stop_measure(started_at):
     # save_stats(filename)
     save_raw_stats(filename)
     # open('out/%s-%s'% (metadata['name'],ended_at), 'w').write(cvs)
-
+    print 'should kill %s now' % os.getpid()
     os.kill(os.getpid(), signal.SIGINT)
+    sys.exit(0)
 
 def constant_measure(*args, **kw):
     # wait for the load generator to take effect
