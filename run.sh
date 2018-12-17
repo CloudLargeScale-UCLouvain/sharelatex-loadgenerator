@@ -9,18 +9,18 @@ then
 fi
 
 export LOCUST_PORT=8089
-export LOCUST_DURATION=120
+export LOCUST_DURATION=360
 export LOCUST_USERS=5
 export LOCUST_USER_START_INDEX=1
 export LOCUST_WAIT_MIN=1000
 export LOCUST_WAIT_MAX=1000
 export LOCUST_HATCH_RATE=1
 
-export KOALA_ENABLED=0 #set manually, comment the line below!
-export KOALA_ENABLED=$(docker ps | grep -c "koala_1") #check if koala container is running
+export KOALA_ENABLED=1 #set manually, comment the line below!
+# export KOALA_ENABLED=$(docker ps | grep -c "koala_1") #check if koala container is running
 
-export PREDEF_PROJECTS='hello'
-export PAGE_TASKS='{ "move_and_write": 100, "chat": 50, "stop":20}'
+export PREDEF_PROJECTS='asdf'
+export PAGE_TASKS='{ "move_and_write": 100, "chat": 20}'
 # export PAGE_TASKS='{ "move_and_write": 100, "spell_check": 90, "chat": 20}'
 #export PAGE_TASKS='{ "move_and_write": 1, "compile": 5, "show_history": 4}'
 export PROJECT_OVERVIEW_TASKS='{"project.Page": 100}'
@@ -43,24 +43,30 @@ export LOCUST_USERS=1
 # EDGE=edge1
 # EDGES=(edge1 edge3 edge4)
 
-export LOCUST_MEASUREMENT_NAME="${HOST_TYPE}.${LOCUST_DURATION}secs.${LOCUST_USERS}users.${KOALA_ENABLED}koala"
-EDGE=localhost
-EDGES=(localhost localhost localhost)
+EDGE=edge1
+EDGES=(edge4)
+# EDGES=(edge1 edge1 edge3 edge3 edge4 edge4)
 
-
-
+j=1
 for i in ${EDGES[@]}; do
-	LOCUST_MEASUREMENT_NAME="${EDGE}.${i}.u1"
+	if (($j==3)) ; then 
+		j=1
+	fi
+	echo "### ${EDGE} and ${i}, part ${j} ###"
+	LOCUST_MEASUREMENT_NAME="${EDGE}.${i}.u1.${j}"
     locust -H http://${EDGE}:8080 -P ${LOCUST_PORT}&
 
 	let 'LOCUST_PORT++'
 	let 'LOCUST_USER_START_INDEX++'
-	LOCUST_MEASUREMENT_NAME="${EDGE}.${i}.u2"
-	locust -H http://${i}:8080 -P ${LOCUST_PORT}&
-
+	LOCUST_MEASUREMENT_NAME="${EDGE}.${i}.u2.${j}"
+	locust -H http://${i}:8080 -P ${LOCUST_PORT}
+	LOCUST_USER_START_INDEX=1
 	LOCUST_PORT=8089
 	sleep 2
+	let 'j++'
 done
+
+echo "### DONE ###"
 
 # for (( i=1; i<=nr_edges; i++ ))
 # do  

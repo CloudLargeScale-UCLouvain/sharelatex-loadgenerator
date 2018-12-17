@@ -57,6 +57,7 @@ class Websocket():
         rec_ts = current_milli_time()
 
         if 'client_ts' in args[0] and self.sent_doc_version != args[0]["v"]:
+            print (rec_ts - args[0]['client_ts'])
             request_success.fire(request_type='WebSocket',
                                 name="update_text",
                                 response_time=rec_ts - args[0]['client_ts'],
@@ -439,4 +440,5 @@ class Page(TaskSet):
 
     def interrupt(self,reschedule=True):
         self.websocket.close()
-        super(Page, self).interrupt(reschedule=reschedule)
+        self.parent.interrupt(reschedule=reschedule)
+        # super(Page, self).interrupt(reschedule=reschedule)
