@@ -45,7 +45,7 @@ import json
 # ,'../out/raw.edge1.edge4.u1.1.4934'
 # ,'../out/raw.edge1.edge4.u1.2.93c1'
 # ]
-
+#
 # files = [
 # '../out/test4/raw.edge1.edge1.u1.1.4721'
 # ,'../out/test4/raw.edge1.edge1.u1.2.5e3e'
@@ -54,10 +54,19 @@ import json
 # ,'../out/test4/raw.edge1.edge4.u1.1.dd65'
 # ,'../out/test4/raw.edge1.edge4.u1.2.9257'
 # ]
-
+#
 files=[
-'../out/raw.edge1.edge3.u1.1.f7af'
+# '../out/raw.edge1.edge3.u1.1.b2a7'
+
+'../out/good_one/raw.edge1.edge1.u1.1.068d'
+,'../out/good_one/raw.edge1.edge1.u1.2.eadf'
+,'../out/good_one/raw.edge1.edge3.u1.1.6bb1'
+,'../out/good_one/raw.edge1.edge3.u1.2.f12e'
+,'../out/good_one/raw.edge1.edge4.u1.1.a69a'
+,'../out/good_one/raw.edge1.edge4.u1.2.9a49'
 ]
+
+
 
 start = 0
 lasty = None

@@ -1,4 +1,4 @@
-import socketio
+from .socketio import *
 import gevent
 import random
 import os
@@ -23,7 +23,7 @@ PAGE_TASKS  = os.environ.get("PAGE_TASKS", '')
 
 class Websocket():
     def __init__(self, page):
-        self.c = socketio.Client(page.locust)
+        self.c = Client(page.locust)
         self.l = page
         self.sent_doc_version = 0
         self.pending_text = None
@@ -167,7 +167,7 @@ def chat(l):
     client_ts = current_milli_time()
     # client_rid = str(uuid.uuid4().hex)
     # l.websocket.c.req_track[client_rid] = dict(name='receive_chat_message', req_ts=client_ts)
-    msg = "".join( [random.choice(string.letters) for i in xrange(5)] )
+    msg = "".join( [random.choice(string.ascii_letters) for i in range(5)] )
     # p = dict(_csrf=l.csrf_token, content=msg, client_ts=client_ts, client_rid=client_rid)
     # p = dict(_csrf=l.csrf_token, content=msg, client_ts=client_ts)
     p={'_csrf':l.csrf_token, 'content':msg, 'client_ts':client_ts}
@@ -304,11 +304,11 @@ def create_project(l, pname):
 
 def join_projects(l):
     r = l.client.get("/project", name='get_project_list')
-    notifications = re.search("\"notifications\":\\[.*\\]", r.content, re.MULTILINE)
+    notifications = re.search("\"notifications\":\\[.*\\]", r.content.decode('utf-8'), re.MULTILINE)
     notifications = json.loads('{'+notifications.group(0)+'}')['notifications'] if notifications is not None else []
     csrf_token = csrf.find_in_page(r.content)
     d = {"_csrf": csrf_token}
-    projects = re.search("{\"projects\":\\[.*\\]}", r.content, re.MULTILINE)
+    projects = re.search("{\"projects\":\\[.*\\]}", r.content.decode('utf-8'), re.MULTILINE)
     projects = json.loads(projects.group(0))['projects'] if projects is not None else []
     pids = [p['id'] for p in projects if not p['archived']]
 
@@ -325,7 +325,7 @@ def join_projects(l):
 
 def get_projects(l):
     r = l.client.get("/project", name='get_project_list')
-    projects = re.search("{\"projects\":\\[.*\\]}", r.content, re.MULTILINE)
+    projects = re.search("{\"projects\":\\[.*\\]}", r.content.decode('utf-8'), re.MULTILINE)
     projects = json.loads(projects.group(0))['projects'] if projects is not None else []
     return [p for p in projects if not p['archived']]
 

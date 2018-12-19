@@ -2,7 +2,8 @@ import time
 import uuid
 from websocket import create_connection
 from .packet import encode, decode
-from urlparse import urlparse
+from urllib.parse import urlparse
+# from urlparse import urlparse
 
 
 
@@ -22,8 +23,9 @@ class Client():
         resp = locust.client.get("/%ssocket.io/1/" % locust.ws_fwd_path,
                                  params={"t": int(time.time()) * 1000},
                                  name="get_socket.io")
-        fields = resp.content.split(":")
-        assert len(fields) == 4, ("unexpected response for socketio handshake: '%s'" % resp.content)
+        content = resp.content.decode('utf-8')
+        fields = content.split(":")
+        assert len(fields) == 4, ("unexpected response for socketio handshake: '%s'" % content)
         url = "ws://%s/%ssocket.io/1/websocket/%s" % (baseurl,locust.ws_fwd_path, fields[0])
         headers = {"Cookie": resp.request.headers["Cookie"]}
         self.ws = create_connection(url, header=headers)

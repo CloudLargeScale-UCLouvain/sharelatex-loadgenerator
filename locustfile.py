@@ -14,6 +14,8 @@ from fractions import Fraction
 from gevent.queue import Queue, Full, Empty
 # from influxdb import InfluxDBClient
 import gevent
+# from gevent import monkey
+# monkey.patch_all()
 from locust.core import TaskSet
 from locust import HttpLocust, TaskSet, task, events, runners, stats
 from locust.exception import StopLocust
@@ -36,7 +38,7 @@ import socket
 METRICS_EXPORT_PATH     = os.environ.get("LOCUST_METRICS_EXPORT", "measurements")
 MEASUREMENT_NAME        = os.environ.get("LOCUST_MEASUREMENT_NAME", "measurement")
 MEASUREMENT_DESCRIPTION = os.environ.get("LOCUST_MEASUREMENT_DESCRIPTION", "linear increase")
-DURATION                = int(os.environ.get("LOCUST_DURATION", "20"))
+DURATION                = int(os.environ.get("LOCUST_DURATION", "120"))
 USERS                   = int(os.environ.get("LOCUST_USERS", '10'))
 PORT                   = os.environ.get("LOCUST_PORT", '8089')
 USER_START_INDEX        = int(os.environ.get("LOCUST_USER_START_INDEX", '1'))
@@ -48,13 +50,14 @@ USER_MEAN               = int(os.environ.get("LOCUST_USER_MEAN", "20"))
 USER_STD                = int(os.environ.get("LOCUST_USER_STD", "5"))
 WAIT_MEAN               = int(os.environ.get("LOCUST_WAIT_MEAN", "10"))
 WAIT_STD                = int(os.environ.get("LOCUST_WAIT_STD", "4"))
-WAIT_MIN                = int(os.environ.get("LOCUST_WAIT_MIN", "2000"))
-WAIT_MAX                = int(os.environ.get("LOCUST_WAIT_MAX", "2000"))
+WAIT_MIN                = int(os.environ.get("LOCUST_WAIT_MIN", "1000"))
+WAIT_MAX                = int(os.environ.get("LOCUST_WAIT_MAX", "1000"))
 TIMESTAMP_START         = os.environ.get("LOCUST_TIMESTAMP_START", '1998-06-02 08:50:00')
 TIMESTAMP_STOP          = os.environ.get("LOCUST_TIMESTAMP_STOP", '1998-06-02 09:50:00')
 WEB_LOGS_PATH           = os.environ.get("LOCUST_LOG_PATH", "logs") # path to nasa/worldcup logs
 NR_SHARELATEX_USERS     = int(os.environ.get("LOCUST_NR_SHARELATEX_USERS", USERS))
 PREDEF_PROJECTS         = os.environ.get("PREDEF_PROJECTS", '')
+USER_PROJECTS           = os.environ.get("USER_PROJECTS", '')
 KOALA_ENABLED           = int(os.environ.get("KOALA_ENABLED", "0"))
 HOST                    = os.environ.get("HOST", '')
 PROJECT_OVERVIEW_TASKS  = os.environ.get("PROJECT_OVERVIEW_TASKS", '')
@@ -141,12 +144,12 @@ def save_stats(filename):
             str_res += '%s ' % (0.1*i)
     # print str_res
     open('out/cdf.%s'% filename, 'w').write(str_res)
-    print "#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error)
+    print("#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error))
     pass
 
 def save_raw_stats(filename):
-    print "#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error)
-    print "#pos triggered: %s, pos_registered: %s #" % (project.pos_triggered, project.pos_registered)
+    print("#success: %s, fail: %s, error: %s #" % (nr_success, nr_failed, nr_error))
+    print("#pos triggered: %s, pos_registered: %s #" % (project.pos_triggered, project.pos_registered))
     if not os.path.exists('out'):
         os.makedirs('out')
     open('out/raw.%s'% filename, 'w').write(json.dumps(rs.stats))
@@ -213,6 +216,7 @@ def login(l):
 
 def find_user_id(doc):
     # window.csrfToken = "DwSsXuVc-uECsSv6dW5ifI4025HacsODuhb8"
+    doc = doc.decode('utf-8')
     user = re.search('window.user_id = \'([^\']+)\'', doc, re.IGNORECASE)
     assert user, "No user found in response"
     return user.group(1)
@@ -229,7 +233,7 @@ def create_tag(l):
     data = {"_csrf": l.csrf_token, "name": name}
     r = l.client.post("/tag", data, name='create_tag')
     if r.status_code != 200:
-        print 'user %s tried to create tag %s' % (l.email, name)
+        print('user %s tried to create tag %s' % (l.email, name))
     pass
 
 
@@ -271,7 +275,8 @@ class ProjectOverview(TaskSet):
         i += USER_START_INDEX-1
 
         self.email = "locust%d@sharelatex.dev" % i
-        user += Fraction(1, logins_per_acc)
+        self.name = "locust%d" % i
+        user += Fraction(1, int(logins_per_acc))
         print('Using user: %s' % self.email)
         mutex.release()
 
@@ -279,7 +284,12 @@ class ProjectOverview(TaskSet):
 
         r = self.client.get("/project", name='get_project_list')
         self.csrf_token = csrf.find_in_page(r.content)
-        self.predef_projects = PREDEF_PROJECTS.split(',')
+        if len(USER_PROJECTS):
+            user_projects = json.loads(USER_PROJECTS)
+            if self.name in user_projects:
+                self.predef_projects = user_projects[self.name]
+        else:
+            self.predef_projects = PREDEF_PROJECTS.split(',')
         self.nr_users = NR_SHARELATEX_USERS
         self.koala_enabled = KOALA_ENABLED == 1
         # assert len(self.projects) > 0, "No project found, create some!"
@@ -322,7 +332,7 @@ def stop_measure(started_at):
     # save_stats(filename)
     save_raw_stats(filename)
     # open('out/%s-%s'% (metadata['name'],ended_at), 'w').write(cvs)
-    print 'should kill %s now' % os.getpid()
+    print('should kill %s now' % os.getpid())
     os.kill(os.getpid(), signal.SIGINT)
     sys.exit(0)
 
@@ -485,7 +495,7 @@ def group_log_by_sessions(df):
 def measure():
     # RequestStats()
     time.sleep(5)
-    print "load type: %s" % LOAD_TYPE
+    print("load type: %s" % LOAD_TYPE)
     if LOAD_TYPE == "constant":
         start_hatch(USERS, HATCH_RATE)
         events.hatch_complete += constant_measure
