@@ -15,22 +15,29 @@ def debug(msg):
 current_milli_time = lambda: int(round(time.time() * 1000))
 
 class Client():
-    def __init__(self, locust):
+    def __init__(self, page):
         self.hooks = {}
         self.req_track={}
         # self.wsdict = {'clientTracking.updatePosition':'update_cursor_position', 'applyOtUpdate':'update_text'}
-        baseurl = urlparse(locust.client.base_url).netloc
-        resp = locust.client.get("/%ssocket.io/1/" % locust.ws_fwd_path,
+        baseurl = urlparse(page.locust.client.base_url).netloc
+        # print('calling socket.io')
+        resp = page.locust.client.get("/%ssocket.io/1/" % page.locust.ws_fwd_path,
                                  params={"t": int(time.time()) * 1000},
                                  name="get_socket.io")
         content = resp.content.decode('utf-8')
         fields = content.split(":")
         assert len(fields) == 4, ("unexpected response for socketio handshake: '%s'" % content)
-        url = "ws://%s/%ssocket.io/1/websocket/%s" % (baseurl,locust.ws_fwd_path, fields[0])
+        url = "ws://%s/%ssocket.io/1/websocket/%s" % (baseurl,page.locust.ws_fwd_path, fields[0])
+        # print('creating connection')
         headers = {"Cookie": resp.request.headers["Cookie"]}
         self.ws = create_connection(url, header=headers)
         m,_ = self._recv()
-        assert m["type"] == "connect"
+        # print('receiving stuff')
+        try:
+            assert m["type"] == "connect"
+        except AssertionError:
+            page.close()
+
 
     def _recv(self):
         start_at = time.time()

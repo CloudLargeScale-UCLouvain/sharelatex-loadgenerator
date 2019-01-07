@@ -23,7 +23,7 @@ PAGE_TASKS  = os.environ.get("PAGE_TASKS", '')
 
 class Websocket():
     def __init__(self, page):
-        self.c = Client(page.locust)
+        self.c = Client(page)
         self.l = page
         self.sent_doc_version = 0
         self.pending_text = None
@@ -35,18 +35,18 @@ class Websocket():
         self.c.on("connectionAccepted", self.noop)
         self.c.on("otUpdateApplied", self.update_version)
 
-        self.c.emit("joinProject", [{"project_id": page.project_id}], id=1)
+        self.emit("joinProject", [{"project_id": page.project_id}], id=1)
         with gevent.Timeout(5000, False):
             m = self.c.recv()
             self.root_folder =  m["args"][1]["rootFolder"][0] if len(m["args"]) > 1 else None
             self.main_tex = m["args"][1]["rootDoc_id"] if len(m["args"]) > 1 else None
             if self.root_folder:
                 page.imgs = [file['_id'] for file in self.root_folder['fileRefs']]
-            self.c.emit("joinDoc", [self.main_tex], id=2)
+            self.emit("joinDoc", [self.main_tex], id=2)
             old_doc = self.c.recv()
             self.doc_text = "\n".join(old_doc["args"][1])
             self.doc_version = old_doc["args"][2]
-            self.c.emit("clientTracking.getConnectedUsers", [], id=3)
+            self.emit("clientTracking.getConnectedUsers", [], id=3)
             self.c.recv()
         assert self.doc_version is not None
 
@@ -57,7 +57,7 @@ class Websocket():
         rec_ts = current_milli_time()
 
         if 'client_ts' in args[0] and self.sent_doc_version != args[0]["v"]:
-            print (rec_ts - args[0]['client_ts'])
+            # print (rec_ts - args[0]['client_ts'])
             request_success.fire(request_type='WebSocket',
                                 name="update_text",
                                 response_time=rec_ts - args[0]['client_ts'],
@@ -150,13 +150,20 @@ class Websocket():
         doc_args['client_ts'] = client_ts
         #     args[args_i[0]]['client_rid'] = client_rid
 
-        self.c.emit("clientTracking.updatePosition", [pos_args])
-        self.c.emit("applyOtUpdate", [self.main_tex, doc_args])
+        # print('move and write')
+        self.emit("clientTracking.updatePosition", [pos_args])
+        self.emit("applyOtUpdate", [self.main_tex, doc_args])
         self.pending_text = self.doc_text[:pos]+text+self.doc_text[pos:]
 
     def close(self):
         self.c.close()
 
+    def emit(self, name, args, id=None, add_version=False):
+        try:
+            self.c.emit(name, args, id, add_version)
+        except:
+            print("SHLG: emit exeption")
+            self.l.interrupt()
 
 def template(path):
     with open(os.path.join(ROOT_PATH, path), "r") as f:
@@ -171,6 +178,7 @@ def chat(l):
     # p = dict(_csrf=l.csrf_token, content=msg, client_ts=client_ts, client_rid=client_rid)
     # p = dict(_csrf=l.csrf_token, content=msg, client_ts=client_ts)
     p={'_csrf':l.csrf_token, 'content':msg, 'client_ts':client_ts}
+    # print('send chat')
     r = l.client.post("/project/%s/messages" % l.project_id, data=p, name="send_chat_message")
     pass
 
@@ -187,6 +195,10 @@ def move_and_write(l):
 
 
 def stop(l):
+    print('User %s closed project %s ' % (l.parent.name, l.project['name']))
+    l.interrupted = True
+    if hasattr(l, 'websocket'):
+        l.websocket.close()
     l.interrupt()
 
 
@@ -306,7 +318,13 @@ def join_projects(l):
     r = l.client.get("/project", name='get_project_list')
     notifications = re.search("\"notifications\":\\[.*\\]", r.content.decode('utf-8'), re.MULTILINE)
     notifications = json.loads('{'+notifications.group(0)+'}')['notifications'] if notifications is not None else []
-    csrf_token = csrf.find_in_page(r.content)
+    try:
+        csrf_token = csrf.find_in_page(r.content)
+    except AssertionError:
+        print('User %s, project %s reached rate limit' % (l.parent.name, l.project['name']))
+        time.sleep(60)
+        stop(l)
+        return
     d = {"_csrf": csrf_token}
     projects = re.search("{\"projects\":\\[.*\\]}", r.content.decode('utf-8'), re.MULTILINE)
     projects = json.loads(projects.group(0))['projects'] if projects is not None else []
@@ -370,16 +388,22 @@ def set_project(l):
     if l.parent.koala_enabled:
             l.locust.ws_fwd_path = 'object/%s/' % l.project_id
 
-    print('User %s is using project %s' % (l.parent.email , l.project['name']))
+    print('User %s opened project %s' % (l.parent.name , l.project['name']))
 
     if l.project_id != old_pid:
         page = l.client.get("/project/%s" % l.project_id, name="open_project")
-        l.csrf_token = csrf.find_in_page(page.content)
+        try:
+            l.csrf_token = csrf.find_in_page(page.content)
+        except AssertionError:
+            print('User %s, project %s reached rate limit' % (l.parent.name, l.project['name']))
+            time.sleep(60)
+            stop(l)
+            return
         # l.user_id = find_user_id(page.content)
 
         d = {"shouldBroadcast": False, "_csrf": l.csrf_token}
-        res = l.client.post("/project/%s/references/indexAll" % l.project_id, params=d, name="get_references")
-        res = l.client.get("/project/%s/metadata" % l.project_id, name="get_project_metadata")
+        # res = l.client.post("/project/%s/references/indexAll" % l.project_id, params=d, name="get_references")
+        # res = l.client.get("/project/%s/metadata" % l.project_id, name="get_project_metadata")
 
 
         # if not len(projects):
@@ -393,8 +417,11 @@ def set_project(l):
                 while True:
                     l.websocket.recv()
             except (ConcurrentObjectUseError, WebSocketConnectionClosedException):
-                l.interrupt()
-                print("websocket closed")
+                if not l.interrupted:
+                    print("SHLG: websocket closed. User %s, project %s " % (l.parent.name , l.project['name']))
+                    l.websocket.close()
+                    l.interrupt()
+
         gevent.spawn(_receive)
 
 # def test_workflow(l):
@@ -436,9 +463,14 @@ class Page(TaskSet):
 
 
     def on_start(self):
+        self.interrupted = False
         set_project(self)
 
-    def interrupt(self,reschedule=True):
-        self.websocket.close()
-        self.parent.interrupt(reschedule=reschedule)
+    def close(self):
+        stop(self)
+    # def interrupt(self,reschedule=True):
+    #     print('came here')
+    #     self.websocket.close()
+    #     self.interrupt()
+        # self.parent.interrupt(reschedule=reschedule)
         # super(Page, self).interrupt(reschedule=reschedule)

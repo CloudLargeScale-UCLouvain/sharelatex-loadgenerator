@@ -346,7 +346,7 @@ def constant_measure(*args, **kw):
 def start_hatch(users, hatch_rate):
     payload = dict(locust_count=users, hatch_rate=hatch_rate)
     r = requests.post("http://localhost:%s/swarm" % PORT, data=payload)
-    print(r.text)
+    # print(r.text)
 
 def print_color(text):
     print("\x1B[31;40m%s\x1B[0m" % text)

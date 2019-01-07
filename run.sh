@@ -68,18 +68,29 @@ echo "#####EXPERIMENT START########"
 
 
 ##PROJECT DISTRIBUTION EXPERIMENT#
-
+LOCUST_DURATION=1200
+export LOCUST_WAIT_MIN=3000
+export LOCUST_WAIT_MAX=3000
+PAGE_TASKS='{ "move_and_write": 50, "chat": 30, "stop": 5}'
+LOCUST_USER_START_INDEX=1
 EDGES=(edge1 edge3 edge4)
 USER_NR=(4 3 3)
 UPROJECTS=(
-       '{"locust1": ["project1", "project3", "project4"], "locust2": ["project2"], "locust3": ["project3"], "locust4": ["project4"]}'
-       '{"locust5": ["project1", "project5", "project8", "project9"], "locust6": ["project1", "project5", "project6"], "locust7": ["project7"]}'
-       '{"locust8": ["project8", "project9", "project10"], "locust9": ["project8", "project9"], "locust10": ["project10"]}')
+        '{"locust1": ["project1", "project3", "project4"], "locust2": ["project2"], "locust3": ["project3"], "locust4": ["project4", "project7"]}'
+        '{"locust5": ["project1", "project5", "project8", "project9"], "locust6": ["project1", "project5", "project6"], "locust7": ["project7"]}'
+        '{"locust8": ["project8", "project9", "project10"], "locust9": ["project8", "project9"], "locust10": ["project10"]}')
 
 
 for (( i=1; i<${#EDGES[@]}+1; i++ ));
 do
-#  echo $i " " ${EDGES[$i-1]} " " $LOCUST_USER_START_INDEX
-echo ${UPROJECTS[$i-1]}
-  LOCUST_USER_START_INDEX=$((LOCUST_USER_START_INDEX + USER_NR[$i-1]))
+	echo "### starting ${EDGES[$i-1]} ###"
+	LOCUST_USERS=${USER_NR[$i-1]}
+	USER_PROJECTS=${UPROJECTS[$i-1]}
+	locust -H http://${EDGES[$i-1]}:8080 -P ${LOCUST_PORT}&
+    # echo $i " " ${EDGES[$i-1]} " " $LOCUST_USER_START_INDEX " " $LOCUST_USERS  " " $USER_PROJECTS
+	
+    LOCUST_USER_START_INDEX=$((LOCUST_USER_START_INDEX + USER_NR[$i-1]))
+    let 'LOCUST_PORT++'
+    sleep 5
 done
+echo "### DONE ###"
