@@ -8,8 +8,10 @@ def main():
 
 
     # files = ['overhead/edge/raw.core.600secs.2users.0koala.26f7','overhead/edge/raw.edge1.600secs.2users.1koala.6707.nocache','overhead/edge/raw.edge1.600secs.2users.1koala.6ce2.cache'] #edge/core 50 ms update_text
-    files = ['overhead/edge200ms/raw.core.600secs.2users.0koala.a8de','overhead/edge200ms/raw.edge1.600secs.2users.1koala.62e0.nocache', 'overhead/edge200ms/raw.edge1.600secs.2users.1koala.cd1c.cache']  # edge/core 50 ms update_text
-
+    # files = ['overhead/good/raw.core.600secs.2users.0koala.a24c','overhead/good/raw.edge1.600secs.2users.1koala.00c5.nocache', 'overhead/good/raw.edge1.600secs.2users.1koala.94f3.cache']  # edge/core 50 ms update_text
+    files = ['overhead/keepalive/raw.ccore.600secs.2users.0koala.d3a8',
+             'overhead/keepalive/raw.edge1.600secs.2users.1koala.1ea1.nocache',
+             'overhead/keepalive/raw.edge1.600secs.2users.1koala.8dc6.cache']  # edge/core 50 ms update_text
     labels = ['no koala', 'koala no cache', 'koala cache']
 
     # files = ['overhead/core/raw.core.600secs.2users.0koala.c53b', 'overhead/core/raw.core.600secs.2users.1koala.6af8']

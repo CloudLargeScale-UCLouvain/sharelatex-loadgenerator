@@ -339,7 +339,9 @@ def join_projects(l):
         if resp.status_code != 200:
             print('user %s shared %s with %s' % ( n['messageOpts']['userName'], n['messageOpts']['projectName'],l.parent.parent.email))
 
-
+def tag(l):
+    r = l.client.get("/tag", name='tag')
+    pass
 
 def get_projects(l):
     r = l.client.get("/project", name='get_project_list')
@@ -449,7 +451,7 @@ class Page(TaskSet):
     # tasks = { move_and_write: 100, spell_check: 90, stop:10}
     # tasks = { move_and_write: 100}
 
-    tasks = { move_and_write: 0, spell_check: 0, compile: 0, chat: 0, show_history: 0, get_image: 0,  share_project: 0, stop: 0}
+    tasks = { move_and_write: 0, spell_check: 0, compile: 0, chat: 0, show_history: 0, get_image: 0,  share_project: 0, tag: 0, stop: 0}
     if len(PAGE_TASKS):
         t = json.loads(PAGE_TASKS)
         if 'move_and_write' in t: tasks[move_and_write] = t['move_and_write']
@@ -459,6 +461,7 @@ class Page(TaskSet):
         if 'show_history' in t: tasks[show_history] = t['show_history']
         if 'get_image' in t: tasks[get_image] = t['get_image']
         if 'share_project' in t: tasks[share_project] = t['share_project']
+        if 'tag' in t: tasks[tag] = t['tag']
         if 'stop' in t: tasks[stop] = t['stop']
 
 

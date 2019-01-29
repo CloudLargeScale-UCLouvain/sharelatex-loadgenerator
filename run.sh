@@ -97,14 +97,14 @@ echo "#####EXPERIMENT START########"
 
 
 
-
 #OVERHEAD#
-LOCUST_DURATION=600
+LOCUST_DURATIOiN=600
 LOCUST_USERS=2
-PAGE_TASKS='{ "move_and_write": 30, "spell_check":30, "chat": 30}'
+PAGE_TASKS='{ "move_and_write": 30, "tag":30, "chat": 30}'
+#PAGE_TASKS='{ "chat": 30}'
 
 KOALA_ENABLED=0
-HOSTNAME='core'
+HOSTNAME='ccore'
 LOCUST_MEASUREMENT_NAME="${HOSTNAME}.${LOCUST_DURATION}secs.${LOCUST_USERS}users.${KOALA_ENABLED}koala"
 # locust -H http://${HOSTNAME}:8080
 
