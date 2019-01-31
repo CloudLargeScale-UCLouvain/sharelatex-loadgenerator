@@ -98,7 +98,7 @@ echo "#####EXPERIMENT START########"
 
 
 #OVERHEAD#
-LOCUST_DURATIOiN=600
+LOCUST_DURATION=600
 LOCUST_USERS=2
 PAGE_TASKS='{ "move_and_write": 30, "tag":30, "chat": 30}'
 #PAGE_TASKS='{ "chat": 30}'

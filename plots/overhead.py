@@ -9,9 +9,9 @@ def main():
 
     # files = ['overhead/edge/raw.core.600secs.2users.0koala.26f7','overhead/edge/raw.edge1.600secs.2users.1koala.6707.nocache','overhead/edge/raw.edge1.600secs.2users.1koala.6ce2.cache'] #edge/core 50 ms update_text
     # files = ['overhead/good/raw.core.600secs.2users.0koala.a24c','overhead/good/raw.edge1.600secs.2users.1koala.00c5.nocache', 'overhead/good/raw.edge1.600secs.2users.1koala.94f3.cache']  # edge/core 50 ms update_text
-    files = ['overhead/keepalive/raw.ccore.600secs.2users.0koala.d3a8',
-             'overhead/keepalive/raw.edge1.600secs.2users.1koala.1ea1.nocache',
-             'overhead/keepalive/raw.edge1.600secs.2users.1koala.8dc6.cache']  # edge/core 50 ms update_text
+    files = ['overhead/better/raw.ccore.360secs.2users.0koala.894d',
+             'overhead/better/raw.edge1.360secs.2users.1koala.ab30.nocache',
+             'overhead/better/raw.edge1.360secs.2users.1koala.9f21.cache']  # edge/core 50 ms update_text
     labels = ['no koala', 'koala no cache', 'koala cache']
 
     # files = ['overhead/core/raw.core.600secs.2users.0koala.c53b', 'overhead/core/raw.core.600secs.2users.1koala.6af8']
@@ -29,7 +29,7 @@ def main():
     filters=['receive_chat_message']
     data01,labels01 = get_data(files, filters)
 
-    filters = ['check_spelling']
+    filters = ['tag']
     data02, labels02 = get_data(files, filters)
 
 
@@ -47,7 +47,7 @@ def main():
     axes[1].set_title('Chat')
     axes[1].boxplot(data01, labels=labels, showfliers=fliers)
 
-    axes[2].set_title('Spelling')
+    axes[2].set_title('Tags')
     axes[2].boxplot(data02, labels=labels, showfliers=fliers)
 
     # axes[0,2].set_title('Spelling')
